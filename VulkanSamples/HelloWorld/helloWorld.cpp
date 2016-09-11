@@ -3,7 +3,6 @@
 
 #include <iostream>
 #include <stdexcept>
-#include <functional>
 #include <fstream>
 #include <algorithm>
 #include <vector>
@@ -29,6 +28,8 @@ const bool enableValidationLayers = false;
 const bool enableValidationLayers = true;
 #endif
 
+// This proxy function is necessary because vkCreateDebugReportCallbackEXT is and extension function and hence not loaded automatically.
+// Needs to be loaded manually via vkGetInstanceProcAddr
 VkResult CreateDebugReportCallbackEXT(VkInstance instance, const VkDebugReportCallbackCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugReportCallbackEXT* pCallback) {
 	auto func = (PFN_vkCreateDebugReportCallbackEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugReportCallbackEXT");
 	if (func != nullptr) {
@@ -39,6 +40,8 @@ VkResult CreateDebugReportCallbackEXT(VkInstance instance, const VkDebugReportCa
 	}
 }
 
+// This proxy function is necessary because vkDestroyDebugReportCallbackEXT is and extension function and hence not loaded automatically.
+// Needs to be loaded manually via vkGetInstanceProcAddr
 void DestroyDebugReportCallbackEXT(VkInstance instance, VkDebugReportCallbackEXT callback, const VkAllocationCallbacks* pAllocator) {
 	auto func = (PFN_vkDestroyDebugReportCallbackEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugReportCallbackEXT");
 	if (func != nullptr) {
@@ -48,6 +51,8 @@ void DestroyDebugReportCallbackEXT(VkInstance instance, VkDebugReportCallbackEXT
 
 struct QueueFamilyIndices {
 	int graphicsFamily = -1;
+	// It's actually possible that the queue families supporting drawing commands and the ones supporting presentation do not overlap. 
+	// Therefore, we have to take into account that there could be a distinct presentation queue
 	int presentFamily = -1;
 
 	bool isComplete() {
@@ -73,10 +78,12 @@ private:
 	GLFWwindow* window;
 
 	VDeleter<VkInstance> instance{ vkDestroyInstance };
+	// Even the debug callback is managed with a handle that needs to be explicitly created
+	// and destroyed
 	VDeleter<VkDebugReportCallbackEXT> callback{ instance, DestroyDebugReportCallbackEXT };
 	VDeleter<VkSurfaceKHR> surface{ instance, vkDestroySurfaceKHR };
 
-	VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
+	VkPhysicalDevice physicalDevice = VK_NULL_HANDLE; // this object will be implicityly destroyed when VKInstance is destroyed
 	VDeleter<VkDevice> device{ vkDestroyDevice };
 
 	VkQueue graphicsQueue;
@@ -101,16 +108,17 @@ private:
 
 	void initWindow() {
 		glfwInit();
-
+		// tell glfw we don't need an openGL context
 		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
 		window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
 
-		glfwSetWindowUserPointer(window, this);
+		glfwSetWindowUserPointer(window, this); // pass a pointer of this class to the callback function below
 		glfwSetWindowSizeCallback(window, HelloTriangleApplication::onWindowResized);
 	}
 
 	void initVulkan() {
+		// statically linking with the Vulkan loader from the SDK
 		createInstance();
 		setupDebugCallback();
 		createSurface();
@@ -154,10 +162,12 @@ private:
 	}
 
 	void createInstance() {
+
 		if (enableValidationLayers && !checkValidationLayerSupport()) {
 			throw std::runtime_error("validation layers requested, but not available!");
 		}
-
+		// Vulkan instance is analogous to an OpenGL rendering context: it stores application
+		// state like enabled instance-level layers and extensions
 		VkApplicationInfo appInfo = {};
 		appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
 		appInfo.pApplicationName = "Hello Triangle";
@@ -201,6 +211,29 @@ private:
 	}
 
 	void createSurface() {
+
+		// a Vulkan surface is an interface between the windowing system and the present engine
+		// for the swap chain. More specifically, it is one of the WSI (Window System Integration
+		// Extensions), the VK_KHR_surface extension. It exposes a VKSurfaceHKR object that represents
+		// an abstract type of surface to be rendered images to. This extension has already been enabled
+		// by the call to glfwGetRequiredInstanceExtensions among other WSI extensions
+
+		/* This is what glfwWindowSurface is going for us behind scenes: 
+
+			VkWin32SurfaceCreateInfoKHR createInfo;
+			createInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
+			createInfo.hwnd = glfwGetWin32Window(window); // get the raw HWND from the GLFW window object
+			createInfo.hinstance = GetModuleHandle(nullptr); returns the HINSTANCE handle of the current process
+
+			// CreateWin32SurfaceKHR needs to be explicitly loaded
+			auto CreateWin32SurfaceKHR = (PFN_vkCreateWin32SurfaceKHR) vkGetInstanceProcAddr(instance, "vkCreateWin32SurfaceKHR");
+
+			if (!CreateWin32SurfaceKHR || CreateWin32SurfaceKHR(instance, &createInfo,
+			nullptr, &surface) != VK_SUCCESS) {
+			throw std::runtime_error("failed to create window surface!");
+			}
+		*/
+
 		if (glfwCreateWindowSurface(instance, window, nullptr, &surface) != VK_SUCCESS) {
 			throw std::runtime_error("failed to create window surface!");
 		}
@@ -232,7 +265,12 @@ private:
 	void createLogicalDevice() {
 		QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
 
+		/* we need to have multiple VkDeviceQueueCreateInfo structs to create a queue 
+		   from both families. An elegant way to do that is to create a set of all unique queue 
+		   families that are necessary for the required queues
+		*/
 		std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
+		// remember that these below could overlap and hence set solution
 		std::set<int> uniqueQueueFamilies = { indices.graphicsFamily, indices.presentFamily };
 
 		float queuePriority = 1.0f;
@@ -258,6 +296,8 @@ private:
 		createInfo.enabledExtensionCount = deviceExtensions.size();
 		createInfo.ppEnabledExtensionNames = deviceExtensions.data();
 
+		// enable the same validation layers for devices as it was done
+		// for the instance
 		if (enableValidationLayers) {
 			createInfo.enabledLayerCount = validationLayers.size();
 			createInfo.ppEnabledLayerNames = validationLayers.data();
@@ -266,17 +306,32 @@ private:
 			createInfo.enabledLayerCount = 0;
 		}
 
+		// the queues are automatically created along with the device
 		if (vkCreateDevice(physicalDevice, &createInfo, nullptr, &device) != VK_SUCCESS) {
 			throw std::runtime_error("failed to create logical device!");
 		}
 
+		// retrieve the queue handles for each family. use zero because we are only
+		// creating one queue for each family
 		vkGetDeviceQueue(device, indices.graphicsFamily, 0, &graphicsQueue);
 		vkGetDeviceQueue(device, indices.presentFamily, 0, &presentQueue);
 	}
 
 	void createSwapChain() {
+		/* In Vulkan the swap chain needs to be created explicitly. Essentially a swap chain
+		   is a queue of images that are waiting to be presented to the screen. The application
+		   will aquire such an image to draw to it and then return to the queue. The details of
+		   how this works and the conditions for presenting an image depend on the swap chain 
+		   set up but the general purpose of the swap chain is to synchronize the presentation
+		   of images with the refresh rate of the screen
+		*/
 		SwapChainSupportDetails swapChainSupport = querySwapChainSupport(physicalDevice);
 
+		/* Find the right settings for:
+			- Surface format(color depth)
+			- Presentation mode(conditions for "swapping" images to the screen)
+			- Swap extent(resolution of images in swap chain)
+		*/
 		VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.formats);
 		VkPresentModeKHR presentMode = chooseSwapPresentMode(swapChainSupport.presentModes);
 		VkExtent2D extent = chooseSwapExtent(swapChainSupport.capabilities);
@@ -671,20 +726,37 @@ private:
 	}
 
 	VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats) {
+		// Ideally we want to use 32 bits per pixel in the BGRA order and work in the sRGB color space (gamma correction)
+		// Ideally, the surface has no preferred format so we can specify what we want
 		if (availableFormats.size() == 1 && availableFormats[0].format == VK_FORMAT_UNDEFINED) {
 			return{ VK_FORMAT_B8G8R8A8_UNORM, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR };
 		}
-
+		// Otherwise, try to find the one we are looking for
 		for (const auto& availableFormat : availableFormats) {
 			if (availableFormat.format == VK_FORMAT_B8G8R8A8_UNORM && availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
 				return availableFormat;
 			}
 		}
-
+		// If above fails the just settle for the first format available
 		return availableFormats[0];
 	}
 
 	VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR> availablePresentModes) {
+		/* This is the most important setting in the swap chain since it represents the actual conditions
+		   for showing images on the screen. 4 possible modes are:
+		   - VK_PRESENT_MODE_IMMEDIATE_KHR: Images submitted by your application are transferred to the screen 
+		     right away, which may result in tearing.
+           - VK_PRESENT_MODE_FIFO_KHR: The swap chain is a queue where the display takes an image from the front 
+             of the queue on a vertical blank and the program inserts rendered images at the back of the queue. 
+             If the queue is full then the program has to wait. This is most similar to vertical sync as found in modern games.
+           - VK_PRESENT_MODE_FIFO_RELAXED_KHR: This mode only differs from the above one if the application is late and the 
+             queue was empty at the last vertical blank. Instead of waiting for the next vertical blank, the image is transferred 
+             right away when it finally arrives. This may result in visible tearing.
+           - VK_PRESENT_MODE_MAILBOX_KHR: This is another variation of the FIFO mode. Instead of blocking the application when the queue
+             is full, the images that are already queued are simply replaced with the newer ones. This mode can be used to implement triple
+             buffering, which allows you to avoid tearing with significantly less latency issues than standard vertical sync that uses 
+             double buffering.
+		*/
 		for (const auto& availablePresentMode : availablePresentModes) {
 			if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR) {
 				return availablePresentMode;
@@ -709,6 +781,15 @@ private:
 	}
 
 	SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device) {
+		/* Just checking if a swap chain is available is not sufficient, because it may not actually be 
+		   compatible with our window surface. Creating a swap chain also involves a lot more settings than 
+		   instance and device creation, so we need to query for some more details before we're able to proceed.
+
+           There are basically three kinds of properties we need to check:
+           - Basic surface capabilities (min/max number of images in swap chain, min/max width and height of images)
+           - Surface formats (pixel format, color space)
+           - Available presentation modes
+		*/
 		SwapChainSupportDetails details;
 
 		vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &details.capabilities);
@@ -733,13 +814,27 @@ private:
 	}
 
 	bool isDeviceSuitable(VkPhysicalDevice device) {
+
+		// Example of how to query for properties and features
+		/*
+		VkPhysicalDeviceProperties deviceProperties;
+		VkPhysicalDeviceFeatures deviceFeatures;
+		vkGetPhysicalDeviceProperties(device, &deviceProperties);
+		vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
+
+		return deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU &&
+			deviceFeatures.geometryShader;
+		*/
 		QueueFamilyIndices indices = findQueueFamilies(device);
 
 		bool extensionsSupported = checkDeviceExtensionSupport(device);
 
 		bool swapChainAdequate = false;
+		// Only query for chain support after verifying that the extension is available
 		if (extensionsSupported) {
 			SwapChainSupportDetails swapChainSupport = querySwapChainSupport(device);
+			// For now we are calling sufficient if there is at least one supported image format
+			// and one supported presenation mode given to the window surface we have
 			swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
 		}
 
@@ -747,14 +842,23 @@ private:
 	}
 
 	bool checkDeviceExtensionSupport(VkPhysicalDevice device) {
+
+		/* Since image presentation is heavily tied into the window system and the surfaces associated with windows, 
+		   it is not actually part of the Vulkan core. You have to enable the VK_KHR_swapchain (VK_KHR_SWAPCHAIN_EXTENSION_NAME) 
+		   device extension after querying for its support.
+		*/
 		uint32_t extensionCount;
 		vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
 
 		std::vector<VkExtensionProperties> availableExtensions(extensionCount);
 		vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableExtensions.data());
 
+		/* Decision was chosen to use a set of strings here to represent the unconfirmed required extensions. 
+		   That way we can easily tick them off while enumerating the sequence of available extensions. Of course 
+		   you can also use a nested loop like in checkValidationLayerSupport. The performance difference is 
+		   irrelevant.
+		*/
 		std::set<std::string> requiredExtensions(deviceExtensions.begin(), deviceExtensions.end());
-
 		for (const auto& extension : availableExtensions) {
 			requiredExtensions.erase(extension.extensionName);
 		}
@@ -763,6 +867,9 @@ private:
 	}
 
 	QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device) {
+
+		// Interested in finding out if device supports at least
+		// a graphics queue and a present queue
 		QueueFamilyIndices indices;
 
 		uint32_t queueFamilyCount = 0;
@@ -777,6 +884,11 @@ private:
 				indices.graphicsFamily = i;
 			}
 
+			/* Although the Vulkan implementation may support window system integration, that does not 
+			   mean that every device in the system supports it.Therefore we need to extend isDeviceSuitable 
+			   to ensure that a device can present images to the surface we created. Since the presentation 
+			   is a queue - specific feature, the problem is actually about finding a queue family that supports 
+			   presenting to the surface we created.*/
 			VkBool32 presentSupport = false;
 			vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &presentSupport);
 
@@ -799,12 +911,16 @@ private:
 
 		unsigned int glfwExtensionCount = 0;
 		const char** glfwExtensions;
+		// obtain required extension for vulkan to interface with our windowing 
+		// system glfw
 		glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
 
 		for (unsigned int i = 0; i < glfwExtensionCount; i++) {
 			extensions.push_back(glfwExtensions[i]);
 		}
 
+		// In order to relay the debug messages back to our application we need 
+		// this extension in order to set up the get messages callback
 		if (enableValidationLayers) {
 			extensions.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
 		}
@@ -819,6 +935,7 @@ private:
 		std::vector<VkLayerProperties> availableLayers(layerCount);
 		vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
 
+		// look for the existance of the lunar sdk standard validation layers
 		for (const char* layerName : validationLayers) {
 			bool layerFound = false;
 
@@ -855,10 +972,24 @@ private:
 		return buffer;
 	}
 
+	// VKAPI_ATTR and VKAPI_CALL ensure that the function has the right signature for Vulkan to call it
 	static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugReportFlagsEXT flags, VkDebugReportObjectTypeEXT objType, uint64_t obj, size_t location, int32_t code, const char* layerPrefix, const char* msg, void* userData) {
 		std::cerr << "validation layer: " << msg << std::endl;
 
 		return VK_FALSE;
+
+		/* The first parameter specifies the type of message, which can be a combination of any of the following bit flags :
+
+			VK_DEBUG_REPORT_INFORMATION_BIT_EXT
+			VK_DEBUG_REPORT_WARNING_BIT_EXT
+			VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT
+			VK_DEBUG_REPORT_ERROR_BIT_EXT
+			VK_DEBUG_REPORT_DEBUG_BIT_EXT
+			The objType parameter specifies the type of object that is the subject of the message.For example if obj is a VkPhysicalDevice then objType would be VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_EXT.This works because internally all Vulkan handles are typedef'd as uint64_t.
+
+			The msg parameter contains the pointer to the message itself.Finally, there's a userData parameter to pass your own data to the callback.
+		*/
+
 	}
 };
 
