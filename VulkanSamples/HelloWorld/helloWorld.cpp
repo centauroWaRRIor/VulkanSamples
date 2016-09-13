@@ -89,10 +89,16 @@ private:
 	VkQueue graphicsQueue;
 	VkQueue presentQueue;
 
+	// swapChain is added after device so it gets deleted before device is
 	VDeleter<VkSwapchainKHR> swapChain{ device, vkDestroySwapchainKHR };
+	// These below are automatically created by the implementation for the 
+	// swap chain and they are automatically cleaned up when the swap chain 
+	// is destroyed
 	std::vector<VkImage> swapChainImages;
 	VkFormat swapChainImageFormat;
 	VkExtent2D swapChainExtent;
+	// An Image view is the only way to access an image as it specifies
+	// what to access and how to access it (e.g., as 2d texture map with no mimmapping)
 	std::vector<VDeleter<VkImageView>> swapChainImageViews;
 	std::vector<VDeleter<VkFramebuffer>> swapChainFramebuffers;
 
@@ -336,7 +342,8 @@ private:
 		VkPresentModeKHR presentMode = chooseSwapPresentMode(swapChainSupport.presentModes);
 		VkExtent2D extent = chooseSwapExtent(swapChainSupport.capabilities);
 
-		uint32_t imageCount = swapChainSupport.capabilities.minImageCount + 1;
+		uint32_t imageCount = swapChainSupport.capabilities.minImageCount + 1; // + 1 for triple buffering
+		// a value if maxImageCount of zero means there is no limit besides memory requirements
 		if (swapChainSupport.capabilities.maxImageCount > 0 && imageCount > swapChainSupport.capabilities.maxImageCount) {
 			imageCount = swapChainSupport.capabilities.maxImageCount;
 		}
@@ -349,12 +356,15 @@ private:
 		createInfo.imageFormat = surfaceFormat.format;
 		createInfo.imageColorSpace = surfaceFormat.colorSpace;
 		createInfo.imageExtent = extent;
-		createInfo.imageArrayLayers = 1;
+		createInfo.imageArrayLayers = 1; // always 1 unless its a stereoscopic 3D application
 		createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
 		QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
 		uint32_t queueFamilyIndices[] = { (uint32_t)indices.graphicsFamily, (uint32_t)indices.presentFamily };
 
+		// There are two ways to handle swap images that will be used across multiple queue families:
+		// In the first one an image is only by only one queue at a time and in the second one 
+		// the image can be used across without ownership transfers
 		if (indices.graphicsFamily != indices.presentFamily) {
 			createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
 			createInfo.queueFamilyIndexCount = 2;
@@ -363,10 +373,12 @@ private:
 		else {
 			createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
 		}
-
+		// line below specifies that there is no need for an image transformation
 		createInfo.preTransform = swapChainSupport.capabilities.currentTransform;
+		// line below says that we don't care about alpha (no need to blend with other windows)
 		createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
 		createInfo.presentMode = presentMode;
+		// don't care about color of pixels obscured by other windows
 		createInfo.clipped = VK_TRUE;
 
 		VkSwapchainKHR oldSwapChain = swapChain;
@@ -380,26 +392,31 @@ private:
 		*&swapChain = newSwapChain;
 
 		vkGetSwapchainImagesKHR(device, swapChain, &imageCount, nullptr);
+		// Retrieve the swap chain images and remember their format and extent
 		swapChainImages.resize(imageCount);
 		vkGetSwapchainImagesKHR(device, swapChain, &imageCount, swapChainImages.data());
-
 		swapChainImageFormat = surfaceFormat.format;
 		swapChainExtent = extent;
 	}
 
 	void createImageViews() {
+		// the resize function initializes all of the list items with the right deleter
 		swapChainImageViews.resize(swapChainImages.size(), VDeleter<VkImageView>{device, vkDestroyImageView});
 
 		for (uint32_t i = 0; i < swapChainImages.size(); i++) {
 			VkImageViewCreateInfo createInfo = {};
 			createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 			createInfo.image = swapChainImages[i];
+			// 2D texture
 			createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
 			createInfo.format = swapChainImageFormat;
+			// stick to default mapping  (you could for example map all of the channels to red in a monochrome texture)
 			createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
 			createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
 			createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
 			createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+			// the subresourceRange field describes the image's purpose and how to access
+			// In this case this will be used as a color target without any mipmapping or layers
 			createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 			createInfo.subresourceRange.baseMipLevel = 0;
 			createInfo.subresourceRange.levelCount = 1;
@@ -409,28 +426,71 @@ private:
 			if (vkCreateImageView(device, &createInfo, nullptr, &swapChainImageViews[i]) != VK_SUCCESS) {
 				throw std::runtime_error("failed to create image views!");
 			}
+			// An image view is sufficient to start using an image as a texture but not enough for using it
+			// as a render target. That requires one more step of indirection known as a framebuffer
 		}
 	}
 
 	void createRenderPass() {
-		VkAttachmentDescription colorAttachment = {};
+
+		/* 
+		In Vulkan, a render pass represents(or describes) a set of framebuffer attachments(images) required for 
+		drawing operations and a collection of subpasses that drawing operations will be ordered into. It is a 
+		construct that collects all color, depth and stencil attachments and operations modifying them in such 
+		a way that driver does not have to deduce this information by itself what may give substantial optimization 
+		opportunities on some GPUs. A subpass consists of drawing operations that use(more or less) the same attachments.
+		Each of these drawing operations may read from some input attachments and render data into some other
+		(color, depth, stencil) attachments. A render pass also describes the dependencies between these attachments: 
+		in one subpass we perform rendering into the texture, but in another this texture will be used as a source of 
+		data(that is, it will be sampled from).All this data help the graphics hardware optimize drawing operations.
+		*/
+		VkAttachmentDescription colorAttachment = {}; // We may have multiple attachments per render pass
 		colorAttachment.format = swapChainImageFormat;
 		colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+		// We have the following choices for loadOp:
+		// VK_ATTACHMENT_LOAD_OP_LOAD: Preserve the existing contents of the attachment
+		// VK_ATTACHMENT_LOAD_OP_CLEAR : Clear the values to a constant at the start
+		// VK_ATTACHMENT_LOAD_OP_DONT_CARE : Existing contents are undefined; we don't care about them
 		colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		// There are only two possibilities for the storeOp :
+		// VK_ATTACHMENT_STORE_OP_STORE: Rendered contents will be stored in memory and can be read later
+		// VK_ATTACHMENT_STORE_OP_DONT_CARE : Contents of the framebuffer will be undefined after the rendering operation
 		colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 		colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 		colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 		colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		// Textures and framebuffers in Vulkan are represented by VkImage objects with a certain pixel format, 
+		// however the layout of the pixels in memory can change based on what you're trying to do with an image.
+		// Some of the most common layouts are :
+		// VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL: Images used as color attachment
+		// VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : Images to be presented in the swap chain
+		// VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL : Images to be used as destination for a memory copy operation
 		colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
+		// Every subpass references one or more of the attachments that we've described.
+		// These references are themselves VkAttachmentReference
 		VkAttachmentReference colorAttachmentRef = {};
 		colorAttachmentRef.attachment = 0;
+		// The layout specifies which layout we would like the attachment to have during a subpass that uses this reference.
+		// Vulkan will automatically transition the attachment to this layout when the subpass is started
 		colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
+		// A single render pass can consist of multiple subpasses.Subpasses are subsequent rendering operations 
+		// that depend on the contents of framebuffers in previous passes, for example a sequence of post - processing 
+		// effects that are applied one after another.If you group these rendering operations into one render pass, 
+		// then Vulkan is able to reorder the operations and conserve memory bandwidth for possibly better performance.
+		// For our very first triangle, however, we'll stick to a single subpass.
 		VkSubpassDescription subPass = {};
-		subPass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+		subPass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS; // Vulkan will support compute here as well in future
 		subPass.colorAttachmentCount = 1;
 		subPass.pColorAttachments = &colorAttachmentRef;
+		// The index of the attachment in this array is directly referenced from the fragment shader with the 
+		// layout(location = 0) out vec4 outColor directive!
+		// The following other types of attachments can be referenced by a subpass :
+		// pInputAttachments: Attachments that are read from a shader
+		// pResolveAttachments : Attachments used for multisampling color attachments
+		// pDepthStencilAttachment : Attachments for depth and stencil data
+		// pPreserveAttachments : Attachments that are not used by this subpass, but for which the data must be preserved
 
 		VkSubpassDependency dependency = {};
 		dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
@@ -458,6 +518,7 @@ private:
 		auto vertShaderCode = readFile("shaders/vert.spv");
 		auto fragShaderCode = readFile("shaders/frag.spv");
 
+		// Shader module objects are only required during the pipeline creation process
 		VDeleter<VkShaderModule> vertShaderModule{ device, vkDestroyShaderModule };
 		VDeleter<VkShaderModule> fragShaderModule{ device, vkDestroyShaderModule };
 		createShaderModule(vertShaderCode, vertShaderModule);
@@ -476,12 +537,19 @@ private:
 		fragShaderStageInfo.pName = "main";
 
 		VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
+		// End of programmable pipeline stages configuration
+		// Beginning of fixed function pipeline stages
 
+		// describes the format of the vertex data that will be passed to the vertex shader
 		VkPipelineVertexInputStateCreateInfo vertexInputInfo = {};
 		vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+		// spacing between data and whether data is per-vertex or per-instance
 		vertexInputInfo.vertexBindingDescriptionCount = 0;
+		// type of the attributes passed to the vertex shader, which binding to load them from and at which offset
 		vertexInputInfo.vertexAttributeDescriptionCount = 0;
 
+		// input assembly describes two things: what kind of geometry will be drawn from the vertices and 
+		// if primitive restart should be enabled
 		VkPipelineInputAssemblyStateCreateInfo inputAssembly = {};
 		inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
 		inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
@@ -506,28 +574,50 @@ private:
 		viewportState.scissorCount = 1;
 		viewportState.pScissors = &scissor;
 
+		// Rasterizer
 		VkPipelineRasterizationStateCreateInfo rasterizer = {};
 		rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-		rasterizer.depthClampEnable = VK_FALSE;
-		rasterizer.rasterizerDiscardEnable = VK_FALSE;
+		rasterizer.depthClampEnable = VK_FALSE; // set to VK_TRUE, then fragments that are beyond the near and far planes are clamped to them as opposed to discarding them
+		rasterizer.rasterizerDiscardEnable = VK_FALSE; // this basically discards any output to the framebuffer
 		rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
 		rasterizer.lineWidth = 1.0f;
 		rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
 		rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
 		rasterizer.depthBiasEnable = VK_FALSE;
 
+		// Multisampling (anti-aliasing) is turned off in this sample
 		VkPipelineMultisampleStateCreateInfo multisampling = {};
 		multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
 		multisampling.sampleShadingEnable = VK_FALSE;
 		multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-
+		
+		/* Color blending pseudo-code
+		if (blendEnable) {
+			finalColor.rgb = (srcColorBlendFactor * newColor.rgb) <colorBlendOp> (dstColorBlendFactor * oldColor.rgb);
+			finalColor.a = (srcAlphaBlendFactor * newColor.a) <alphaBlendOp> (dstAlphaBlendFactor * oldColor.a);
+		}
+		else {
+			finalColor = newColor;
+		}
+		finalColor = finalColor & colorWriteMask;
+		*/
 		VkPipelineColorBlendAttachmentState colorBlendAttachment = {};
 		colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
 		colorBlendAttachment.blendEnable = VK_FALSE;
+		// To implement alpha blending like this
+		// finalColor.rgb = newAlpha * newColor + (1 - newAlpha) * oldColor;
+		// finalColor.a = newAlpha.a;
+		// do following:
+		//colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE; // Optional
+		//colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO; // Optional
+		//colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD; // Optional
+		//colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE; // Optional
+		//colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO; // Optional
+		//colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD; // Optional
 
 		VkPipelineColorBlendStateCreateInfo colorBlending = {};
 		colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-		colorBlending.logicOpEnable = VK_FALSE;
+		colorBlending.logicOpEnable = VK_FALSE; // this will (override) disable the above method of color blending
 		colorBlending.logicOp = VK_LOGIC_OP_COPY;
 		colorBlending.attachmentCount = 1;
 		colorBlending.pAttachments = &colorBlendAttachment;
@@ -536,6 +626,7 @@ private:
 		colorBlending.blendConstants[2] = 0.0f;
 		colorBlending.blendConstants[3] = 0.0f;
 
+		// This structure is used to specify the layout of shader uniforms in future samples
 		VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
 		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 		pipelineLayoutInfo.setLayoutCount = 0;
@@ -545,6 +636,8 @@ private:
 			throw std::runtime_error("failed to create pipeline layout!");
 		}
 
+		// Note that a render pass has been created at this point prior to finally
+		// creating the pipeline object
 		VkGraphicsPipelineCreateInfo pipelineInfo = {};
 		pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 		pipelineInfo.stageCount = 2;
@@ -560,14 +653,42 @@ private:
 		pipelineInfo.subpass = 0;
 		pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 
+		/*
+		  In conclusion the graphics pipeline consists of:
+		   - Shader stages : the shader modules that define the functionality of the programmable stages of the graphics pipeline
+		   - Fixed - function state : all of the structures that define the fixed - function stages of the pipeline, like input 
+		     assembly, rasterizer, viewport and color blending
+		   - Pipeline layout : the uniform and push values referenced by the shader that can be updated at draw time
+		   - Render pass : the attachments referenced by the pipeline stages and their usage
+		 */
 		if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline) != VK_SUCCESS) {
 			throw std::runtime_error("failed to create graphics pipeline!");
 		}
 	}
 
 	void createFramebuffers() {
+		/* 
+		   We have created a render pass. It describes all attachments and all subpasses used during the render pass.
+		   But this description is quite abstract. We have specified formats of all attachments and described how attachments 
+		   will be used by each subpass. But we didn’t specify WHAT attachments we will be using or , in other words, what images
+		   will be (bound) used as these attachments. This is done through a framebuffer.
+
+		   A framebuffer describes specific images that the render pass operates on. This separation of render pass and framebuffer 
+		   gives us some additional flexibility. We can use the given render pass with different framebuffers and a given framebuffer 
+		   with different render passes, if they are compatible, meaning that they operate in a similar fashion on images of similar 
+		   types and usages.
+
+		   Before we can create a framebuffer, we must create image views for each image used as a framebuffer and render pass attachment. 
+		   In Vulkan, not only in the case of framebuffers, but in general, we don’t operate on images themselves. Images are not accessed 
+		   directly.
+
+		   The image that we have to use as attachment depends on which image the swap chain returns when we retrieve one for presentation. 
+		   That means that we have to create a framebuffer for all of the images in the swap chain and use the one that corresponds to the 
+		   retrieved image at drawing time.
+		*/
 		swapChainFramebuffers.resize(swapChainImageViews.size(), VDeleter<VkFramebuffer>{device, vkDestroyFramebuffer});
 
+		// We'll then iterate through the image views and create framebuffers from them
 		for (size_t i = 0; i < swapChainImageViews.size(); i++) {
 			VkImageView attachments[] = {
 				swapChainImageViews[i]
@@ -763,10 +884,17 @@ private:
 			}
 		}
 
-		return VK_PRESENT_MODE_FIFO_KHR;
+		return VK_PRESENT_MODE_FIFO_KHR; // onlny implementation to be guaranteed
 	}
 
 	VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities) {
+		/* The swap extent is the resolution of the swap chain images and it's almost always exactly equal to the resolution 
+		   of the window that we're drawing to. The range of the possible resolutions is defined in the VkSurfaceCapabilitiesKHR 
+		   structure. Vulkan tells us to match the resolution of the window by setting the width and height in the currentExtent 
+		   member. However, some window managers do allow us to differ here and this is indicated by setting the width and height 
+		   in currentExtent to a special value: the maximum value of uint32_t. In that case we'll pick the resolution that best 
+		   matches the window within the minImageExtent and maxImageExtent bounds.
+		*/
 		if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) {
 			return capabilities.currentExtent;
 		}
