@@ -107,6 +107,8 @@ private:
 	VDeleter<VkPipeline> graphicsPipeline{ device, vkDestroyPipeline };
 
 	VDeleter<VkCommandPool> commandPool{ device, vkDestroyCommandPool };
+	// command buffers will automatically be destroyed when their command pool is
+	// destroyed
 	std::vector<VkCommandBuffer> commandBuffers;
 
 	VDeleter<VkSemaphore> imageAvailableSemaphore{ device, vkDestroySemaphore };
@@ -710,12 +712,17 @@ private:
 	}
 
 	void createCommandPool() {
+		// Each command pool can only allocate command buffers that are submitted on a single type of queue.
 		QueueFamilyIndices queueFamilyIndices = findQueueFamilies(physicalDevice);
 
 		VkCommandPoolCreateInfo poolInfo = {};
 		poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 		poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily;
-
+		//poolInfo.flags = 0; // Optional, two possible flags described below
+	    // VK_COMMAND_POOL_CREATE_TRANSIENT_BIT: Hint that command buffers are rerecorded with new commands very often
+		// (may change memory allocation behavior)
+		// VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT : Allow command buffers to be rerecorded individually, without 
+		// this flag they all have to be reset together
 		if (vkCreateCommandPool(device, &poolInfo, nullptr, &commandPool) != VK_SUCCESS) {
 			throw std::runtime_error("failed to create command pool!");
 		}
@@ -726,12 +733,19 @@ private:
 			vkFreeCommandBuffers(device, commandPool, commandBuffers.size(), commandBuffers.data());
 		}
 
+		// Because one of the drawing commands involves binding the right VkFramebuffer, 
+		// we'll actually have to record a command buffer for every image in the swap chain once again
 		commandBuffers.resize(swapChainFramebuffers.size());
 
 		VkCommandBufferAllocateInfo allocInfo = {};
 		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 		allocInfo.commandPool = commandPool;
 		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+		// The level parameter specifies if the allocated command buffers are primary or secondary command buffers.
+		// VK_COMMAND_BUFFER_LEVEL_PRIMARY: Can be submitted to a queue for execution, but cannot be called from 
+		// other command buffers.
+		// VK_COMMAND_BUFFER_LEVEL_SECONDARY : Cannot be submitted directly, but can be called from primary command 
+		// buffers.
 		allocInfo.commandBufferCount = (uint32_t)commandBuffers.size();
 
 		if (vkAllocateCommandBuffers(device, &allocInfo, commandBuffers.data()) != VK_SUCCESS) {
@@ -742,9 +756,18 @@ private:
 			VkCommandBufferBeginInfo beginInfo = {};
 			beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 			beginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
+			// Flags specify how we're going to use the command buffer
+		    // VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT: The command buffer will be rerecorded 
+			// right after executing it once.
+			// VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT : This is a secondary command buffer 
+			// that will be entirely within a single render pass.
+			// VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT : The command buffer can be resubmitted 
+			// while it is also already pending execution.
 
+			// Start recording the commnad buffer
 			vkBeginCommandBuffer(commandBuffers[i], &beginInfo);
 
+			// Drawing starts by beginning a render pass
 			VkRenderPassBeginInfo renderPassInfo = {};
 			renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 			renderPassInfo.renderPass = renderPass;
@@ -752,18 +775,32 @@ private:
 			renderPassInfo.renderArea.offset = { 0, 0 };
 			renderPassInfo.renderArea.extent = swapChainExtent;
 
+			// The last two parameters define the clear values to use for VK_ATTACHMENT_LOAD_OP_CLEAR, 
+			// which we used as load operation for the color attachment
 			VkClearValue clearColor = { 0.0f, 0.0f, 0.0f, 1.0f };
 			renderPassInfo.clearValueCount = 1;
 			renderPassInfo.pClearValues = &clearColor;
 
 			vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+			// VK_SUBPASS_CONTENTS_INLINE: The render pass commands will be embedded in the primary 
+			// command buffer itself and no secondary command buffers will be executed.
+		    // VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS: The render pass commands will be executed 
+			// from secondary command buffers.
 
+			// Bind the graphics pipeline
 			vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 
+			// We have told vulkan which operations to execute in the graphics pipeline and which
+			// attachment to use in the fragment shader, now draw the triangle
 			vkCmdDraw(commandBuffers[i], 3, 1, 0, 0);
+			// vertexCount: Even though we don't have a vertex buffer, we technically still have 3 vertices to draw.
+			// instanceCount : Used for instanced rendering, use 1 if you're not doing that.
+			// firstVertex : Used as an offset into the vertex buffer, defines the lowest value of gl_VertexIndex.
+			// firstIntance : Used as an offset for instanced rendering, defines the lowest value of gl_InstanceIndex.
 
 			vkCmdEndRenderPass(commandBuffers[i]);
 
+			// Finish recording the command buffer
 			if (vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS) {
 				throw std::runtime_error("failed to record command buffer!");
 			}
