@@ -150,7 +150,11 @@ private:
 			glfwPollEvents();
 			drawFrame();
 		}
-
+		// Remember that all of the operations in drawFrame are asynchronous.
+		// That means that when we exit the loop in mainLoop, drawing and presentation operations 
+		// may still be going on. Cleaning up resources while that is happening is a bad idea.
+		// To fix that problem, we should wait for the logical device to finish operations before 
+		// exiting mainLoop :
 		vkDeviceWaitIdle(device);
 	}
 
@@ -162,7 +166,9 @@ private:
 	}
 
 	void recreateSwapChain() {
-		vkDeviceWaitIdle(device);
+
+		// On window resizing, the window surface change makes the swap chain to be no longer compatible with it
+		vkDeviceWaitIdle(device); // We sholdn't use resources that are still in use
 
 		createSwapChain();
 		createImageViews();
@@ -387,13 +393,16 @@ private:
 		createInfo.clipped = VK_TRUE;
 
 		VkSwapchainKHR oldSwapChain = swapChain;
+		// We need to pass the previous swap chain object in the oldSwapchain parameter
+		// to indicate that we intend to replace it if this is a recreate swap chain scenario
 		createInfo.oldSwapchain = oldSwapChain;
 
 		VkSwapchainKHR newSwapChain;
 		if (vkCreateSwapchainKHR(device, &createInfo, nullptr, &newSwapChain) != VK_SUCCESS) {
 			throw std::runtime_error("failed to create swap chain!");
 		}
-
+		// destroy the old swap chain and replace the handle with the handle of the new swap chain.
+		// Hint, look at the address off overloading in VDeleter.h
 		*&swapChain = newSwapChain;
 
 		vkGetSwapchainImagesKHR(device, swapChain, &imageCount, nullptr);
@@ -429,6 +438,9 @@ private:
 			createInfo.subresourceRange.layerCount = 1;
 
 			if (vkCreateImageView(device, &createInfo, nullptr, &swapChainImageViews[i]) != VK_SUCCESS) {
+				// Note that &swapChainImageViews[i] uses of address of operator overload so it will 
+				// automatically release old resource and acquire new one by the magic of its wrapper
+				// vDeleter in case this is a swap chain recreation scenario
 				throw std::runtime_error("failed to create image views!");
 			}
 			// An image view is sufficient to start using an image as a texture but not enough for using it
@@ -532,6 +544,9 @@ private:
 		renderPassInfo.pDependencies = &dependency;
 
 		if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS) {
+			// Note that &renderPass uses of address of operator overload so it will 
+			// automatically release old resource and acquire new one by the magic of its wrapper
+			// vDeleter in case this is a swap chain recreation scenario.
 			throw std::runtime_error("failed to create render pass!");
 		}
 	}
@@ -684,6 +699,9 @@ private:
 		   - Render pass : the attachments referenced by the pipeline stages and their usage
 		 */
 		if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline) != VK_SUCCESS) {
+			// Note that &graphicsPipeline uses of address of operator overload so it will 
+			// automatically release old resource and acquire new one by the magic of its wrapper
+			// vDeleter in case this is a swap chain recreation scenario.
 			throw std::runtime_error("failed to create graphics pipeline!");
 		}
 	}
@@ -726,6 +744,9 @@ private:
 			framebufferInfo.layers = 1;
 
 			if (vkCreateFramebuffer(device, &framebufferInfo, nullptr, &swapChainFramebuffers[i]) != VK_SUCCESS) {
+				// Note that &swapChainFramebuffers[i] uses of address of operator overload so it will 
+				// automatically release old resource and acquire new one by the magic of its wrapper
+				// vDeleter in case this is a swap chain recreation scenario.
 				throw std::runtime_error("failed to create framebuffer!");
 			}
 		}
@@ -749,6 +770,8 @@ private:
 	}
 
 	void createCommandBuffers() {
+		// If this is a case of swap chain recreation, then there is no need to recreate the command pool,
+		// instead just delete the old command buffeers and recreate them
 		if (commandBuffers.size() > 0) {
 			vkFreeCommandBuffers(device, commandPool, commandBuffers.size(), commandBuffers.data());
 		}
@@ -846,6 +869,9 @@ private:
 		VkResult result = vkAcquireNextImageKHR(device, swapChain, std::numeric_limits<uint64_t>::max(), imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
 
 		if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+			// If the swap chain turns out to be out of date when attempting to acquire an image, 
+			// then it is no longer possible to present to it. Therefore we should immediately recreate 
+			// the swap chain and try again in the next drawFrame call.
 			recreateSwapChain();
 			return;
 		}
@@ -890,15 +916,15 @@ private:
 		// it eventually show up on the screen
 		VkPresentInfoKHR presentInfo = {};
 		presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-
 		// The first two parameters specify which semaphores to wait on before presentation can happen
 		presentInfo.waitSemaphoreCount = 1;
 		presentInfo.pWaitSemaphores = signalSemaphores;
 
 		VkSwapchainKHR swapChains[] = { swapChain };
+		// The next two parameters specify the swap chains to present images to and the index of the 
+		// image for each swap chain.This will almost always be a single one.
 		presentInfo.swapchainCount = 1;
 		presentInfo.pSwapchains = swapChains;
-
 		presentInfo.pImageIndices = &imageIndex;
 
 		// The vkQueuePresentKHR function submits the request to present an image to the swap chain
