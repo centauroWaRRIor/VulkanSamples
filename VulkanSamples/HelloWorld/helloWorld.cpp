@@ -111,6 +111,9 @@ private:
 	// destroyed
 	std::vector<VkCommandBuffer> commandBuffers;
 
+	// We'll need one semaphore to signal that an image has been acquired and is 
+	// ready for rendering, and another one to signal that rendering has finished 
+	// and presentation can happen
 	VDeleter<VkSemaphore> imageAvailableSemaphore{ device, vkDestroySemaphore };
 	VDeleter<VkSemaphore> renderFinishedSemaphore{ device, vkDestroySemaphore };
 
@@ -477,13 +480,13 @@ private:
 		// Vulkan will automatically transition the attachment to this layout when the subpass is started
 		colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
-		// A single render pass can consist of multiple subpasses.Subpasses are subsequent rendering operations 
+		// A single render pass can consist of multiple subpasses. Subpasses are subsequent rendering operations 
 		// that depend on the contents of framebuffers in previous passes, for example a sequence of post - processing 
-		// effects that are applied one after another.If you group these rendering operations into one render pass, 
+		// effects that are applied one after another. If you group these rendering operations into one render pass, 
 		// then Vulkan is able to reorder the operations and conserve memory bandwidth for possibly better performance.
 		// For our very first triangle, however, we'll stick to a single subpass.
 		VkSubpassDescription subPass = {};
-		subPass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS; // Vulkan will support compute here as well in future
+		subPass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS; // Vulkan will support compute here so need to be explicit
 		subPass.colorAttachmentCount = 1;
 		subPass.pColorAttachments = &colorAttachmentRef;
 		// The index of the attachment in this array is directly referenced from the fragment shader with the 
@@ -494,11 +497,28 @@ private:
 		// pDepthStencilAttachment : Attachments for depth and stencil data
 		// pPreserveAttachments : Attachments that are not used by this subpass, but for which the data must be preserved
 
+		// Remember that the subpasses in a render pass automatically take care of image layout transitions.
+		// These transitions are controlled by subpass dependencies, which specify memory and execution dependencies between 
+		// subpasses.
+
+		// There are two built - in dependencies that take care of the transition at the start of the render pass and at the end 
+		// of the render pass, but the former does not occur at the right time. It assumes that the transition occurs at the start 
+		// of the pipeline, but we haven't acquired the image yet at that point! The image is not ready until the 
+		// VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT stage. Therefore we need to override this dependency with our own dependency.
 		VkSubpassDependency dependency = {};
+		// The first two fields specify the indices of the dependency and the dependent subpass
+		// The special value VK_SUBPASS_EXTERNAL refers to the implicit subpass before or after the render pass depending on 
+		// whether it is specified in srcSubpass or dstSubpass. The index 0 refers to our subpass, which is the first and only 
+		// one. The dstSubpass must always be higher than srcSubpass to prevent cycles in the dependency graph.
 		dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
 		dependency.dstSubpass = 0;
+		// The next two fields specify the operations to wait on and the stages in which these operations occur. We need to wait 
+		// for the swap chain to finish reading from the image before we can access it.This reading happens in the last pipeline stage.
 		dependency.srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
 		dependency.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+		// The operations that should wait on this are in the color attachment stage and involve the reading and writing of the 
+		// color attachment. These settings will prevent the transition from happening until it's actually necessary (and allowed): 
+		// when we want to start writing colors to it.
 		dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 		dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 
@@ -820,6 +840,9 @@ private:
 
 	void drawFrame() {
 		uint32_t imageIndex;
+		// First acquire an image from the swap chain
+		// max 64 disables timeout, and specify the semaphore to signal when the presentation engine is finished using
+		// the image so that we can start drawing on it
 		VkResult result = vkAcquireNextImageKHR(device, swapChain, std::numeric_limits<uint64_t>::max(), imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
 
 		if (result == VK_ERROR_OUT_OF_DATE_KHR) {
@@ -830,29 +853,45 @@ private:
 			throw std::runtime_error("failed to acquire swap chain image!");
 		}
 
+		// Prepare the queue submission and synchronization
 		VkSubmitInfo submitInfo = {};
 		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
+		// The first three parameters specify which semaphores to wait on before execution begins 
+		// and in which stage(s) of the pipeline to wait. We want to wait with writing colors to 
+		// the image until it's available, so we're specifying the stage of the graphics pipeline
+		// that writes to the color attachment. That means that theoretically the implementation
+		// can already start executing our vertex shader and such while the image is not available
+		// yet. Each entry in the waitStages array corresponds to the semaphore with the same index
+		// in pWaitSemaphores.
 		VkSemaphore waitSemaphores[] = { imageAvailableSemaphore };
 		VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
 		submitInfo.waitSemaphoreCount = 1;
 		submitInfo.pWaitSemaphores = waitSemaphores;
 		submitInfo.pWaitDstStageMask = waitStages;
 
+		// We should submit the command buffer that binds the swap chain image we just acquired
+		// as color attachment
 		submitInfo.commandBufferCount = 1;
 		submitInfo.pCommandBuffers = &commandBuffers[imageIndex];
 
+		// The signalSemaphoreCount and pSignalSemaphores parameters specify which semaphores 
+		// to signal once the command buffer(s) have finished execution
 		VkSemaphore signalSemaphores[] = { renderFinishedSemaphore };
 		submitInfo.signalSemaphoreCount = 1;
 		submitInfo.pSignalSemaphores = signalSemaphores;
 
+		// Submit the command queue to the graphics queue
 		if (vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS) {
 			throw std::runtime_error("failed to submit draw command buffer!");
 		}
 
+		// The last step of drawing a frame is submitting the result back to the swap chain to have 
+		// it eventually show up on the screen
 		VkPresentInfoKHR presentInfo = {};
 		presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 
+		// The first two parameters specify which semaphores to wait on before presentation can happen
 		presentInfo.waitSemaphoreCount = 1;
 		presentInfo.pWaitSemaphores = signalSemaphores;
 
@@ -862,6 +901,7 @@ private:
 
 		presentInfo.pImageIndices = &imageIndex;
 
+		// The vkQueuePresentKHR function submits the request to present an image to the swap chain
 		result = vkQueuePresentKHR(presentQueue, &presentInfo);
 
 		if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
