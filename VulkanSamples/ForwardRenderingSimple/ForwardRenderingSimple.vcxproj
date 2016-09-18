@@ -161,6 +161,7 @@
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="uniformBuffer.h" />
     <ClInclude Include="vDeleter.h" />
     <ClInclude Include="vertexBuffer.h" />
   </ItemGroup>
