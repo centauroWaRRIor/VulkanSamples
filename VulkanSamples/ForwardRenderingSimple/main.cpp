@@ -104,6 +104,7 @@ private:
 	std::vector<VDeleter<VkFramebuffer>> swapChainFramebuffers;
 
 	VDeleter<VkRenderPass> renderPass{ device, vkDestroyRenderPass };
+	VDeleter<VkDescriptorSetLayout> descriptorSetLayout{ device, vkDestroyDescriptorSetLayout }; // All of the descriptor bindings used in shaders are combined into a single set
 	VDeleter<VkPipelineLayout> pipelineLayout{ device, vkDestroyPipelineLayout };
 	VDeleter<VkPipeline> graphicsPipeline{ device, vkDestroyPipeline };
 
