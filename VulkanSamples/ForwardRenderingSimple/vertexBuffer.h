@@ -10,6 +10,7 @@ namespace VertexBuffer {
 		// GLM provides C++ types that match those use in GLSL
 		glm::vec2 pos;
 		glm::vec3 color;
+		glm::vec2 texCoord;
 
 		// Need to tell Vulkan how to pass this data into the vertex
 		// shader once its been uploaded into GPU memory. Two methods
@@ -32,8 +33,8 @@ namespace VertexBuffer {
 			return bindingDescription;
 		}
 
-		static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions() {
-			std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions = {};
+		static std::array<VkVertexInputAttributeDescription, 3> getAttributeDescriptions() {
+			std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions = {};
 			// An attribute description struct describes how to extract a vertex attribute from 
 			// a chunk of vertex data originating from a binding description. We have two attributes, 
 			// position and color, so we need two attribute description structs.
@@ -49,16 +50,20 @@ namespace VertexBuffer {
 			attributeDescriptions[1].offset = offsetof(Vertex, color);
 			// The format parameter implicitly defines the byte size of attribute data and the offset 
 			// parameter specifies the number of bytes since the start of the per - vertex data to read from.
+			attributeDescriptions[2].binding = 0;
+			attributeDescriptions[2].location = 2;
+			attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
+			attributeDescriptions[2].offset = offsetof(Vertex, texCoord);
 			return attributeDescriptions;
 		}
 	};
 
 	// Interleaving vertex attributes
 	const std::vector<Vertex> vertices = {
-		{ { -0.5f, -0.5f },{ 1.0f, 0.0f, 0.0f } },
-		{ { 0.5f, -0.5f },{ 0.0f, 1.0f, 0.0f } },
-		{ { 0.5f, 0.5f },{ 0.0f, 0.0f, 1.0f } },
-		{ { -0.5f, 0.5f },{ 1.0f, 1.0f, 1.0f } }
+		{ { -0.5f, -0.5f },{ 1.0f, 0.0f, 0.0f },{ 0.0f, 0.0f } },
+		{ { 0.5f, -0.5f },{ 0.0f, 1.0f, 0.0f },{ 1.0f, 0.0f } },
+		{ { 0.5f, 0.5f },{ 0.0f, 0.0f, 1.0f },{ 1.0f, 1.0f } },
+		{ { -0.5f, 0.5f },{ 1.0f, 1.0f, 1.0f },{ 0.0f, 1.0f } }
 	};
 
 	const std::vector<uint16_t> indices = {

@@ -1145,11 +1145,25 @@ private:
 		// for example. Our MVP transformation is a single object, so we're using a descriptorCount of 1
 		uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 		// We also need to specify in which shader stages the descriptor is going to be referenced.
+		
+		// Create the binding layout for the combined image sampler.
+		VkDescriptorSetLayoutBinding samplerLayoutBinding = {};
+		samplerLayoutBinding.binding = 1;
+		samplerLayoutBinding.descriptorCount = 1;
+		samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		samplerLayoutBinding.pImmutableSamplers = nullptr;
+		// Make sure to set the stageFlags to indicate that we intend to use the combined image sampler 
+		// descriptor in the fragment shader.That's where the color of the fragment is going to be determined. 
+		// It is possible to use texture sampling in the vertex shader, for example to dynamically deform a 
+		// grid of vertices by a heightmap.
+		samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+		std::array<VkDescriptorSetLayoutBinding, 2> bindings = { uboLayoutBinding, samplerLayoutBinding };
 
 		VkDescriptorSetLayoutCreateInfo layoutInfo = {};
 		layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-		layoutInfo.bindingCount = 1;
-		layoutInfo.pBindings = &uboLayoutBinding;
+		layoutInfo.bindingCount = bindings.size();
+		layoutInfo.pBindings = bindings.data();
 
 		// This function accepts a simple VkDescriptorSetLayoutCreateInfo with the array of bindings
 		if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, descriptorSetLayout.replace()) != VK_SUCCESS) {
@@ -1161,14 +1175,16 @@ private:
 
 	void createDescriptorPool() {
 		// Descriptor sets can't be created directly, they must be allocated from a pool like command buffers
-		VkDescriptorPoolSize poolSize = {};
-		poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		poolSize.descriptorCount = 1;
+		std::array<VkDescriptorPoolSize, 2> poolSizes = {};
+		poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		poolSizes[0].descriptorCount = 1;
+		poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		poolSizes[1].descriptorCount = 1;
 
 		VkDescriptorPoolCreateInfo poolInfo = {};
 		poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-		poolInfo.poolSizeCount = 1;
-		poolInfo.pPoolSizes = &poolSize;
+		poolInfo.poolSizeCount = poolSizes.size();
+		poolInfo.pPoolSizes = poolSizes.data();
 		poolInfo.maxSets = 1;
 
 		if (vkCreateDescriptorPool(device, &poolInfo, nullptr, descriptorPool.replace()) != VK_SUCCESS) {
@@ -1189,36 +1205,53 @@ private:
 		allocInfo.descriptorSetCount = 1;
 		allocInfo.pSetLayouts = layouts;
 
-		// The call to vkAllocateDescriptorSets will allocate one descriptor set with one uniform buffer descriptor.
+		// The call to vkAllocateDescriptorSets will allocate one descriptor set with one uniform buffer 
+		// descriptor and one combined image sample descriptor.
 		if (vkAllocateDescriptorSets(device, &allocInfo, &descriptorSet) != VK_SUCCESS) {
 			throw std::runtime_error("failed to allocate descriptor set!");
 		}
 
 		// The descriptor set has been allocated now, but the descriptors within still need to be configured.
 		// Descriptors that refer to buffers, like our uniform buffer descriptor, are configured with a VkDescriptorBufferInfo 
-		// struct. This structure specifies the buffer and the region within it that contains the data for the descriptor
+		// struct. This structure specifies the buffer and the region within it that contains the data for the descriptor.
 		VkDescriptorBufferInfo bufferInfo = {};
 		bufferInfo.buffer = uniformBuffer;
 		bufferInfo.offset = 0;
 		bufferInfo.range = sizeof(UniformBuffer::UniformBufferObject);
 
+		// Bind the actual image and sampler resources to the descriptor in the descriptor set.
+		VkDescriptorImageInfo imageInfo = {};
+		imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		imageInfo.imageView = textureImageView;
+		imageInfo.sampler = textureSampler;
+
 		// Update the descriptor to finalize its configuration
-		VkWriteDescriptorSet descriptorWrite = {};
-		descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		descriptorWrite.dstSet = descriptorSet;
-		descriptorWrite.dstBinding = 0;
-		descriptorWrite.dstArrayElement = 0;
-		descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+
+		std::array<VkWriteDescriptorSet, 2> descriptorWrites = {};
+
+		descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		descriptorWrites[0].dstSet = descriptorSet;
+		descriptorWrites[0].dstBinding = 0;
+		descriptorWrites[0].dstArrayElement = 0;
+		descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 		// It's possible to update multiple descriptors at once in an array, starting at index dstArrayElement. 
 		// The descriptorCount field specifies how many array elements you want to update.
-		descriptorWrite.descriptorCount = 1;
+		descriptorWrites[0].descriptorCount = 1;
 		// The last field references an array with descriptorCount structs that actually configure the descriptors.
 		// It depends on the type of descriptor which one of the three you actually need to use.
-		descriptorWrite.pBufferInfo = &bufferInfo;
-		descriptorWrite.pImageInfo = nullptr; // Optional
-		descriptorWrite.pTexelBufferView = nullptr; // Optional
+		descriptorWrites[0].pBufferInfo = &bufferInfo;
+		//descriptorWrite[0].pImageInfo = nullptr; // Optional
+		//descriptorWrite[0].pTexelBufferView = nullptr; // Optional
 
-		vkUpdateDescriptorSets(device, 1, &descriptorWrite, 0, nullptr);
+		descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		descriptorWrites[1].dstSet = descriptorSet;
+		descriptorWrites[1].dstBinding = 1;
+		descriptorWrites[1].dstArrayElement = 0;
+		descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		descriptorWrites[1].descriptorCount = 1;
+		descriptorWrites[1].pImageInfo = &imageInfo;
+
+		vkUpdateDescriptorSets(device, descriptorWrites.size(), descriptorWrites.data(), 0, nullptr);
 
 		/* A resource descriptor is a way for shaders to freely access resources like buffers and images.
 		   We're going to set up a buffer that contains the transformation matrices and have the vertex shader 
