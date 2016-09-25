@@ -32,6 +32,19 @@ public:
 		return &object;
 	}
 
+	// It overloads the address - of, assignment, comparison and casting operators to make 
+	// the wrapper as transparent as possible. When the wrapped object goes out of scope, 
+	// the destructor is invoked, which in turn calls the cleanup function we specified.
+
+	// The address - of operator returns a constant pointer to make sure that the object 
+	// within the wrapper is not unexpectedly changed. If you want to replace the handle 
+	// within the wrapper through a pointer, then you should use the replace() function 
+	// instead. It will invoke the cleanup function for the existing handle so that you 
+	// can safely overwrite it afterwards.
+
+	//	There is also a default constructor with a dummy deleter function that can be used 
+	// to initialize it later, which will be useful for lists of deleters.
+
 	T* replace() {
 		cleanup();
 		return &object;
@@ -47,8 +60,7 @@ public:
 		return object == T(rhs);
 	}
 
-	// overloading the casting or conversion operator. This is to make the wrapper
-	// transparent
+	// overloading the casting or conversion operator. 
 	operator T() const {
 		return object;
 	}

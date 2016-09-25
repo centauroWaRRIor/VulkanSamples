@@ -115,9 +115,13 @@ private:
 	// Vertex Buffer acts more like a buffer descriptor, as the memory is hold separately
 	VDeleter<VkBuffer> vertexBuffer{ device, vkDestroyBuffer };
 	VDeleter<VkDeviceMemory> vertexBufferMemory{ device, vkFreeMemory };
+	
 	// Handle to the texture image and its memory
 	VDeleter<VkImage> textureImage{ device, vkDestroyImage };
 	VDeleter<VkDeviceMemory> textureImageMemory{ device, vkFreeMemory };
+	VDeleter<VkImageView> textureImageView{ device, vkDestroyImageView };
+	VDeleter<VkSampler> textureSampler{ device, vkDestroySampler };
+
 	// Note that specifying the vertexBuffer and vertexBufferMemory members 
 	// in this order will cause the memory to be freed before the buffer is destroyed, 
 	// but that's allowed as long as the buffer is no longer used.
@@ -128,6 +132,7 @@ private:
 	VDeleter<VkDeviceMemory> uniformStagingBufferMemory{ device, vkFreeMemory };
 	VDeleter<VkBuffer> uniformBuffer{ device, vkDestroyBuffer };
 	VDeleter<VkDeviceMemory> uniformBufferMemory{ device, vkFreeMemory };
+
 	VDeleter<VkDescriptorPool> descriptorPool{ device, vkDestroyDescriptorPool };
 	// Descriptor set will automatically be freed when the descriptor pool is destroyed.
 	VkDescriptorSet descriptorSet;
@@ -169,6 +174,8 @@ private:
 		createFramebuffers();
 		createCommandPool();
 		createTextureImage();
+		createTextureImageView();
+		createTextureSampler();
 		createVertexBuffer();
 		createIndexBuffer();
 		createUniformBuffer();
@@ -452,33 +459,7 @@ private:
 		swapChainImageViews.resize(swapChainImages.size(), VDeleter<VkImageView>{device, vkDestroyImageView});
 
 		for (uint32_t i = 0; i < swapChainImages.size(); i++) {
-			VkImageViewCreateInfo createInfo = {};
-			createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-			createInfo.image = swapChainImages[i];
-			// 2D texture
-			createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-			createInfo.format = swapChainImageFormat;
-			// stick to default mapping  (you could for example map all of the channels to red in a monochrome texture)
-			createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-			createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-			createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-			createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-			// the subresourceRange field describes the image's purpose and how to access
-			// In this case this will be used as a color target without any mipmapping or layers
-			createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-			createInfo.subresourceRange.baseMipLevel = 0;
-			createInfo.subresourceRange.levelCount = 1;
-			createInfo.subresourceRange.baseArrayLayer = 0;
-			createInfo.subresourceRange.layerCount = 1;
-
-			if (vkCreateImageView(device, &createInfo, nullptr, swapChainImageViews[i].replace()) != VK_SUCCESS) {
-				// Note that &swapChainImageViews[i] uses of address of operator overload so it will 
-				// automatically release old resource and acquire new one by the magic of its wrapper
-				// vDeleter in case this is a swap chain recreation scenario
-				throw std::runtime_error("failed to create image views!");
-			}
-			// An image view is sufficient to start using an image as a texture but not enough for using it
-			// as a render target. That requires one more step of indirection known as a framebuffer
+			createImageView(swapChainImages[i], swapChainImageFormat, swapChainImageViews[i]);
 		}
 	}
 
@@ -578,9 +559,6 @@ private:
 		renderPassInfo.pDependencies = &dependency;
 
 		if (vkCreateRenderPass(device, &renderPassInfo, nullptr, renderPass.replace()) != VK_SUCCESS) {
-			// Note that &renderPass uses of address of operator overload so it will 
-			// automatically release old resource and acquire new one by the magic of its wrapper
-			// vDeleter in case this is a swap chain recreation scenario.
 			throw std::runtime_error("failed to create render pass!");
 		}
 	}
@@ -748,9 +726,6 @@ private:
 		   - Render pass : the attachments referenced by the pipeline stages and their usage
 		 */
 		if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, graphicsPipeline.replace()) != VK_SUCCESS) {
-			// Note that &graphicsPipeline uses of address of operator overload so it will 
-			// automatically release old resource and acquire new one by the magic of its wrapper
-			// vDeleter in case this is a swap chain recreation scenario.
 			throw std::runtime_error("failed to create graphics pipeline!");
 		}
 	}
@@ -793,9 +768,6 @@ private:
 			framebufferInfo.layers = 1;
 
 			if (vkCreateFramebuffer(device, &framebufferInfo, nullptr, swapChainFramebuffers[i].replace()) != VK_SUCCESS) {
-				// Note that &swapChainFramebuffers[i] uses of address of operator overload so it will 
-				// automatically release old resource and acquire new one by the magic of its wrapper
-				// vDeleter in case this is a swap chain recreation scenario.
 				throw std::runtime_error("failed to create framebuffer!");
 			}
 		}
@@ -1014,7 +986,81 @@ private:
 
 		endSingleTimeCommands(commandBuffer);
 	}
+/*************************/
+	void createTextureImageView() {
+		createImageView(textureImage, VK_FORMAT_R8G8B8A8_UNORM, textureImageView);
+	}
 
+	void createTextureSampler() {
+		// Textures are usually accessed through samplers, which will apply 
+		// filtering and transformations to compute the final color that is retrieved.
+		VkSamplerCreateInfo samplerInfo = {};
+		samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+		// modes available: VK_FILTER_NEAREST and VK_FILTER_LINEAR
+		samplerInfo.magFilter = VK_FILTER_LINEAR;
+		samplerInfo.minFilter = VK_FILTER_LINEAR;
+		// The addressing mode can be specified per axis using the addressMode fields.
+		samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+		samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+		samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+		// There is no reason not to use this unless performance is a concern
+		samplerInfo.anisotropyEnable = VK_TRUE;
+		samplerInfo.maxAnisotropy = 16;
+		// The borderColor field specifies which color is returned when sampling beyond 
+		// the image with clamp to border addressing mode.
+		samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+		// If this field is VK_TRUE, then you can simply use coordinates within the[0, texWidth) 
+		// and [0, texHeight) range. If it is VK_FALSE, then the texels are addressed using the
+		// [0, 1) range on all axes.
+		samplerInfo.unnormalizedCoordinates = VK_FALSE;
+		// If a comparison function is enabled, then texels will first be compared to a value, 
+		// and the result of that comparison is used in filtering operations. This is mainly used 
+		// for percentage - closer filtering on shadow maps.
+		samplerInfo.compareEnable = VK_FALSE;
+		samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+		samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+
+		// Note the sampler does not reference a VkImage anywhere. The sampler is a distinct object 
+		// that provides an interface to extract colors from a texture. It can be applied to any image 
+		// you want, whether it is 1D, 2D or 3D. This is different from many older APIs, which combined 
+		// texture images and filtering into a single state.
+		if (vkCreateSampler(device, &samplerInfo, nullptr, textureSampler.replace()) != VK_SUCCESS) {
+			throw std::runtime_error("failed to create texture sampler!");
+		}
+	}
+
+	void createImageView(VkImage image, VkFormat format, VDeleter<VkImageView>& imageView) {
+
+		// We've seen before, with the swap chain images and the framebuffer, 
+		// that images are accessed through image views rather than directly. 
+		// We will also need to create such an image view for the texture image.
+
+		VkImageViewCreateInfo viewInfo = {};
+		viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+		viewInfo.image = image;
+		// 2D texture
+		viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		viewInfo.format = format;
+		// stick to default mapping  (you could for example map all of the channels to red in a monochrome texture)
+		viewInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+		viewInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+		viewInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+		viewInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+		// the subresourceRange field describes the image's purpose and how to access
+		// In this case this will be used as a color target without any mipmapping or layers
+		viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		viewInfo.subresourceRange.baseMipLevel = 0;
+		viewInfo.subresourceRange.levelCount = 1;
+		viewInfo.subresourceRange.baseArrayLayer = 0;
+		viewInfo.subresourceRange.layerCount = 1;
+
+		if (vkCreateImageView(device, &viewInfo, nullptr, imageView.replace()) != VK_SUCCESS) {
+			throw std::runtime_error("failed to create texture image view!");
+		}
+		// An image view is sufficient to start using an image as a texture but not enough for using it
+		// as a render target. That requires one more step of indirection known as a framebuffer
+	}
+/*************************/
 	void createVertexBuffer() {
 
 		// The most optimal memory has the VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT flag and is usually 
