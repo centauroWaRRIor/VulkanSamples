@@ -243,7 +243,7 @@ private:
 			createInfo.enabledLayerCount = 0;
 		}
 
-		if (vkCreateInstance(&createInfo, nullptr, &instance) != VK_SUCCESS) {
+		if (vkCreateInstance(&createInfo, nullptr, instance.replace()) != VK_SUCCESS) {
 			throw std::runtime_error("failed to create instance!");
 		}
 	}
@@ -256,7 +256,7 @@ private:
 		createInfo.flags = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT;
 		createInfo.pfnCallback = debugCallback;
 
-		if (CreateDebugReportCallbackEXT(instance, &createInfo, nullptr, &callback) != VK_SUCCESS) {
+		if (CreateDebugReportCallbackEXT(instance, &createInfo, nullptr, callback.replace()) != VK_SUCCESS) {
 			throw std::runtime_error("failed to set up debug callback!");
 		}
 	}
@@ -285,7 +285,7 @@ private:
 			}
 		*/
 
-		if (glfwCreateWindowSurface(instance, window, nullptr, &surface) != VK_SUCCESS) {
+		if (glfwCreateWindowSurface(instance, window, nullptr, surface.replace()) != VK_SUCCESS) {
 			throw std::runtime_error("failed to create window surface!");
 		}
 	}
@@ -358,7 +358,7 @@ private:
 		}
 
 		// the queues are automatically created along with the device
-		if (vkCreateDevice(physicalDevice, &createInfo, nullptr, &device) != VK_SUCCESS) {
+		if (vkCreateDevice(physicalDevice, &createInfo, nullptr, device.replace()) != VK_SUCCESS) {
 			throw std::runtime_error("failed to create logical device!");
 		}
 
@@ -436,13 +436,13 @@ private:
 			throw std::runtime_error("failed to create swap chain!");
 		}
 		// destroy the old swap chain and replace the handle with the handle of the new swap chain.
-		// Hint, look at the address off overloading in VDeleter.h
-		*&swapChain = newSwapChain;
+		swapChain = newSwapChain;
 
 		vkGetSwapchainImagesKHR(device, swapChain, &imageCount, nullptr);
 		// Retrieve the swap chain images and remember their format and extent
 		swapChainImages.resize(imageCount);
 		vkGetSwapchainImagesKHR(device, swapChain, &imageCount, swapChainImages.data());
+
 		swapChainImageFormat = surfaceFormat.format;
 		swapChainExtent = extent;
 	}
@@ -471,7 +471,7 @@ private:
 			createInfo.subresourceRange.baseArrayLayer = 0;
 			createInfo.subresourceRange.layerCount = 1;
 
-			if (vkCreateImageView(device, &createInfo, nullptr, &swapChainImageViews[i]) != VK_SUCCESS) {
+			if (vkCreateImageView(device, &createInfo, nullptr, swapChainImageViews[i].replace()) != VK_SUCCESS) {
 				// Note that &swapChainImageViews[i] uses of address of operator overload so it will 
 				// automatically release old resource and acquire new one by the magic of its wrapper
 				// vDeleter in case this is a swap chain recreation scenario
@@ -577,7 +577,7 @@ private:
 		renderPassInfo.dependencyCount = 1;
 		renderPassInfo.pDependencies = &dependency;
 
-		if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS) {
+		if (vkCreateRenderPass(device, &renderPassInfo, nullptr, renderPass.replace()) != VK_SUCCESS) {
 			// Note that &renderPass uses of address of operator overload so it will 
 			// automatically release old resource and acquire new one by the magic of its wrapper
 			// vDeleter in case this is a swap chain recreation scenario.
@@ -718,7 +718,7 @@ private:
 		pipelineLayoutInfo.setLayoutCount = 1;
 		pipelineLayoutInfo.pSetLayouts = setLayouts;
 
-		if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
+		if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, pipelineLayout.replace()) != VK_SUCCESS) {
 			throw std::runtime_error("failed to create pipeline layout!");
 		}
 
@@ -747,7 +747,7 @@ private:
 		   - Pipeline layout : the uniform and push values referenced by the shader that can be updated at draw time
 		   - Render pass : the attachments referenced by the pipeline stages and their usage
 		 */
-		if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline) != VK_SUCCESS) {
+		if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, graphicsPipeline.replace()) != VK_SUCCESS) {
 			// Note that &graphicsPipeline uses of address of operator overload so it will 
 			// automatically release old resource and acquire new one by the magic of its wrapper
 			// vDeleter in case this is a swap chain recreation scenario.
@@ -792,7 +792,7 @@ private:
 			framebufferInfo.height = swapChainExtent.height;
 			framebufferInfo.layers = 1;
 
-			if (vkCreateFramebuffer(device, &framebufferInfo, nullptr, &swapChainFramebuffers[i]) != VK_SUCCESS) {
+			if (vkCreateFramebuffer(device, &framebufferInfo, nullptr, swapChainFramebuffers[i].replace()) != VK_SUCCESS) {
 				// Note that &swapChainFramebuffers[i] uses of address of operator overload so it will 
 				// automatically release old resource and acquire new one by the magic of its wrapper
 				// vDeleter in case this is a swap chain recreation scenario.
@@ -801,13 +801,12 @@ private:
 		}
 	}
 
-/***************************************************/
 	void createTextureImage() {
 
 		//decode
 		unsigned int texWidth, texHeight, texChannels;
 		std::vector<unsigned char> pixels;
-		std::string filename = "textures/texture.jpg";
+		std::string filename = "textures/texture.png";
 		unsigned error = lodepng::decode(pixels, texWidth, texHeight, filename);
 
 		//if there's an error, display it
@@ -1015,7 +1014,6 @@ private:
 
 		endSingleTimeCommands(commandBuffer);
 	}
-/***************************************************/
 
 	void createVertexBuffer() {
 
@@ -1108,7 +1106,7 @@ private:
 		layoutInfo.pBindings = &uboLayoutBinding;
 
 		// This function accepts a simple VkDescriptorSetLayoutCreateInfo with the array of bindings
-		if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS) {
+		if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, descriptorSetLayout.replace()) != VK_SUCCESS) {
 			throw std::runtime_error("failed to create descriptor set layout!");
 		}
 		// A descriptor layout describes the type of descriptors that can be bound but a descriptor set will 
@@ -1127,7 +1125,7 @@ private:
 		poolInfo.pPoolSizes = &poolSize;
 		poolInfo.maxSets = 1;
 
-		if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
+		if (vkCreateDescriptorPool(device, &poolInfo, nullptr, descriptorPool.replace()) != VK_SUCCESS) {
 			throw std::runtime_error("failed to create descriptor pool!");
 		}
 	}
@@ -1208,7 +1206,7 @@ private:
 		// from the graphics queue, so we can stick to exclusive access.
 		bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-		if (vkCreateBuffer(device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS) {
+		if (vkCreateBuffer(device, &bufferInfo, nullptr, buffer.replace()) != VK_SUCCESS) {
 			throw std::runtime_error("failed to create buffer!");
 		}
 
@@ -1230,7 +1228,7 @@ private:
 
 		// We now have a way to determine the right memory type, so we can actually allocate the memory 
 		// by filling in the VkMemoryAllocateInfo structure.
-		if (vkAllocateMemory(device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS) {
+		if (vkAllocateMemory(device, &allocInfo, nullptr, bufferMemory.replace()) != VK_SUCCESS) {
 			throw std::runtime_error("failed to allocate buffer memory!");
 		}
 
@@ -1339,7 +1337,7 @@ private:
 		// (may change memory allocation behavior)
 		// VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT : Allow command buffers to be rerecorded individually, without 
 		// this flag they all have to be reset together
-		if (vkCreateCommandPool(device, &poolInfo, nullptr, &commandPool) != VK_SUCCESS) {
+		if (vkCreateCommandPool(device, &poolInfo, nullptr, commandPool.replace()) != VK_SUCCESS) {
 			throw std::runtime_error("failed to create command pool!");
 		}
 	}
@@ -1445,8 +1443,8 @@ private:
 		VkSemaphoreCreateInfo semaphoreInfo = {};
 		semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
-		if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &imageAvailableSemaphore) != VK_SUCCESS ||
-			vkCreateSemaphore(device, &semaphoreInfo, nullptr, &renderFinishedSemaphore) != VK_SUCCESS) {
+		if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, imageAvailableSemaphore.replace()) != VK_SUCCESS ||
+			vkCreateSemaphore(device, &semaphoreInfo, nullptr, renderFinishedSemaphore.replace()) != VK_SUCCESS) {
 
 			throw std::runtime_error("failed to create semaphores!");
 		}
@@ -1562,7 +1560,7 @@ private:
 		createInfo.codeSize = code.size();
 		createInfo.pCode = (uint32_t*)code.data();
 
-		if (vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
+		if (vkCreateShaderModule(device, &createInfo, nullptr, shaderModule.replace()) != VK_SUCCESS) {
 			throw std::runtime_error("failed to create shader module!");
 		}
 	}

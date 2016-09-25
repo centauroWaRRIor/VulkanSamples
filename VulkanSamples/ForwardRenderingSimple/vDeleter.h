@@ -26,14 +26,25 @@ public:
 		cleanup();
 	}
 
-	// overloading the address of operator, useful for re-assinging an object like this
-	// *&swapChain = newSwapChain; 
-	// where:
-	// VDeleter<VkSwapchainKHR> swapChain{ device, vkDestroySwapchainKHR };
-	// VkSwapchainKHR newSwapChain;
-	T* operator &() {
+	// overloading the address of operator, useful for 
+	// making wrapper transparent
+	const T* operator &() const {
+		return &object;
+	}
+
+	T* replace() {
 		cleanup();
 		return &object;
+	}
+
+	void operator=(T rhs) {
+		cleanup();
+		object = rhs;
+	}
+
+	template<typename V>
+	bool operator==(V rhs) {
+		return object == T(rhs);
 	}
 
 	// overloading the casting or conversion operator. This is to make the wrapper
