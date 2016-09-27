@@ -4,7 +4,13 @@
 #include <array>
 #include <vector>
 
+#define TINYOBJLOADER_IMPLEMENTATION
+#include "tiny_obj_loader.h"
+
 namespace VertexBuffer {
+
+	const std::string MODEL_PATH = "models/chalet.obj";
+	const std::string TEXTURE_PATH = "textures/chalet.jpg";
 
 	struct Vertex {
 		// GLM provides C++ types that match those use in GLSL
@@ -58,22 +64,30 @@ namespace VertexBuffer {
 		}
 	};
 
+	void loadModel() {
+		// An OBJ file consists of positions, normals, texture coordinates and faces. Faces consist of an 
+		// arbitrary amount of vertices, where each vertex refers to a position, normal and / or texture 
+		// coordinate by index. This makes it possible to not just reuse entire vertices, but also individual 
+		// attributes.
+
+		// The attrib container holds all of the positions, normals and texture coordinates in its attrib.vertices, 
+		// attrib.normals and attrib.texcoords vectors.
+		tinyobj::attrib_t attrib;
+		// The shapes container contains all of the separate objects and their faces. Each face consists of an array 
+		// of vertices, and each vertex contains the indices of the position, normal and texture coordinate attributes.
+		std::vector<tinyobj::shape_t> shapes;
+		std::vector<tinyobj::material_t> materials;
+		std::string err;
+
+		// Faces in OBJ files can actually contain an arbitrary number of vertices, whereas our application can only 
+		// render triangles. Luckily the LoadObj has an optional parameter to automatically triangulate such faces, 
+		// which is enabled by default
+		if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &err, MODEL_PATH.c_str())) {
+			throw std::runtime_error(err);
+		}
+	}
+
 	// Interleaving vertex attributes
-	const std::vector<Vertex> vertices = {
-		{ { -0.5f, -0.5f, 0.0f },{ 1.0f, 0.0f, 0.0f },{ 0.0f, 0.0f } },
-		{ { 0.5f, -0.5f, 0.0f },{ 0.0f, 1.0f, 0.0f },{ 1.0f, 0.0f } },
-		{ { 0.5f, 0.5f, 0.0f },{ 0.0f, 0.0f, 1.0f },{ 1.0f, 1.0f } },
-		{ { -0.5f, 0.5f, 0.0f },{ 1.0f, 1.0f, 1.0f },{ 0.0f, 1.0f } },
-
-		{ { -0.5f, -0.5f, -0.5f },{ 1.0f, 0.0f, 0.0f },{ 0.0f, 0.0f } },
-		{ { 0.5f, -0.5f, -0.5f },{ 0.0f, 1.0f, 0.0f },{ 1.0f, 0.0f } },
-		{ { 0.5f, 0.5f, -0.5f },{ 0.0f, 0.0f, 1.0f },{ 1.0f, 1.0f } },
-		{ { -0.5f, 0.5f, -0.5f },{ 1.0f, 1.0f, 1.0f },{ 0.0f, 1.0f } }
-	};
-
-	const std::vector<uint16_t> indices = {
-		0, 1, 2, 2, 3, 0,
-		4, 5, 6, 6, 7, 4
-	};
-
+	std::vector<Vertex> vertices;
+	std::vector<uint32_t> indices;
 }

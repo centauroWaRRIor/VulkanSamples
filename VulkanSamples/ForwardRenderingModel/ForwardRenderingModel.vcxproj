@@ -163,6 +163,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="lodepng.h" />
+    <ClInclude Include="tiny_obj_loader.h" />
     <ClInclude Include="uniformBuffer.h" />
     <ClInclude Include="vDeleter.h" />
     <ClInclude Include="vertexBuffer.h" />

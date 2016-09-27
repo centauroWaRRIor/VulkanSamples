@@ -113,10 +113,6 @@ private:
 	VDeleter<VkPipelineLayout> pipelineLayout{ device, vkDestroyPipelineLayout };
 	VDeleter<VkPipeline> graphicsPipeline{ device, vkDestroyPipeline };
 
-	// Vertex Buffer acts more like a buffer descriptor, as the memory is hold separately
-	VDeleter<VkBuffer> vertexBuffer{ device, vkDestroyBuffer };
-	VDeleter<VkDeviceMemory> vertexBufferMemory{ device, vkFreeMemory };
-	
 	// A depth attachment is based on an image, just like the color attachment.
 	// The difference is that the swap chain will not automatically create depth images for us.
 	// We only need a single depth image, because only one draw operation is running at once.
@@ -131,6 +127,9 @@ private:
 	VDeleter<VkImageView> textureImageView{ device, vkDestroyImageView };
 	VDeleter<VkSampler> textureSampler{ device, vkDestroySampler };
 
+	// Vertex Buffer acts more like a buffer descriptor, as the memory is hold separately
+	VDeleter<VkBuffer> vertexBuffer{ device, vkDestroyBuffer };
+	VDeleter<VkDeviceMemory> vertexBufferMemory{ device, vkFreeMemory };
 	// Note that specifying the vertexBuffer and vertexBufferMemory members 
 	// in this order will cause the memory to be freed before the buffer is destroyed, 
 	// but that's allowed as long as the buffer is no longer used.
@@ -1612,7 +1611,7 @@ private:
 
 			vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
 
-			vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+			vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
 			// Unlike vertex and index buffers, descriptor sets are not unique to graphics pipelines
 			// .Therefore we need to specify if we want to bind descriptor sets to the graphics or compute pipeline.
