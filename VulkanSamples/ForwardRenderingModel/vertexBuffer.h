@@ -1,8 +1,10 @@
 #pragma once
 #include <vulkan/vulkan.h>
 #include <glm/glm.hpp>
+#include <glm/gtx/hash.hpp>
 #include <array>
 #include <vector>
+#include <unordered_map>
 
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "tiny_obj_loader.h"
@@ -62,7 +64,16 @@ namespace VertexBuffer {
 			attributeDescriptions[2].offset = offsetof(Vertex, texCoord);
 			return attributeDescriptions;
 		}
+
+		// Required for using a vertex as a key in a hash table (unordered map)
+		bool operator==(const Vertex& other) const {
+			return pos == other.pos && color == other.color && texCoord == other.texCoord;
+		}
 	};
+
+	// Interleaving vertex attributes
+	std::vector<Vertex> vertices;
+	std::vector<uint32_t> indices;
 
 	void loadModel() {
 		// An OBJ file consists of positions, normals, texture coordinates and faces. Faces consist of an 
@@ -85,9 +96,52 @@ namespace VertexBuffer {
 		if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &err, MODEL_PATH.c_str())) {
 			throw std::runtime_error(err);
 		}
-	}
 
-	// Interleaving vertex attributes
-	std::vector<Vertex> vertices;
-	std::vector<uint32_t> indices;
+		// We should keep only the unique vertices and use the index buffer to reuse them whenever they come up
+		std::unordered_map<Vertex, int> uniqueVertices = {};
+
+		// We're going to combine all of the faces in the file into a single model, so just iterate over all of the shapes:
+		for (const auto& shape : shapes) {
+			for (const auto& index : shape.mesh.indices) {
+				Vertex vertex = {};
+
+				// The triangulation feature has already made sure that there are three vertices per face.
+				vertex.pos = {
+					attrib.vertices[3 * index.vertex_index + 0],
+					attrib.vertices[3 * index.vertex_index + 1],
+					attrib.vertices[3 * index.vertex_index + 2]
+				};
+
+				vertex.texCoord = {
+					attrib.texcoords[2 * index.texcoord_index + 0],
+					// The problem is that the origin of texture coordinates in Vulkan is the top-left corner, whereas 
+					// the OBJ format assumes the bottom-left corner. Solve this by flipping the vertical component 
+					// of the texture coordinates:
+					1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
+				};
+
+				
+				// We check if we've already seen a vertex with the exact same position and texture coordinates before. 
+				// If not, we add it to vertices and store its index in the uniqueVertices container. 
+				// After that we add the index of the new vertex to indices. If we've seen the exact same vertex before, 
+				// then we look up its index in uniqueVertices and store that index in indices.
+				if (uniqueVertices.count(vertex) == 0) {
+					uniqueVertices[vertex] = vertices.size();
+					vertices.push_back(vertex);
+				}
+
+				indices.push_back(uniqueVertices[vertex]);
+			}
+		}
+	}
+}
+
+// custom specialization of std::hash can be injected in namespace std
+// required for using a vertex as a key in a hash table
+namespace std {
+	template<> struct hash<VertexBuffer::Vertex> {
+		size_t operator()(VertexBuffer::Vertex const& vertex) const {
+			return ((hash<glm::vec3>()(vertex.pos) ^ (hash<glm::vec3>()(vertex.color) << 1)) >> 1) ^ (hash<glm::vec2>()(vertex.texCoord) << 1);
+		}
+	};
 }

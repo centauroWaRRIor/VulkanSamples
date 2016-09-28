@@ -185,6 +185,7 @@ private:
 		createTextureImage();
 		createTextureImageView();
 		createTextureSampler();
+		VertexBuffer::loadModel();
 		createVertexBuffer();
 		createIndexBuffer();
 		createUniformBuffer();
@@ -880,7 +881,7 @@ private:
 		//decode
 		unsigned int texWidth, texHeight, texChannels;
 		std::vector<unsigned char> pixels;
-		std::string filename = "textures/texture.png";
+		std::string filename = "models/chalet.png";
 		unsigned error = lodepng::decode(pixels, texWidth, texHeight, filename);
 
 		//if there's an error, display it
