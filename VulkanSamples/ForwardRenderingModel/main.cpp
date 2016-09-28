@@ -1,7 +1,4 @@
 #define GLFW_INCLUDE_VULKAN // replaces //#include <vulkan/vulkan.h>
-#define GLM_FORCE_RADIANS
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE // GLM will use the OpenGL depth range of -1.0 to 1.0 by default. Use the Vulkan range of 0.0 to 1.0 instead
-#include <glm/gtc/matrix_transform.hpp>
 #include <GLFW/glfw3.h> 
 #include <iostream>
 #include <stdexcept>
@@ -625,8 +622,8 @@ private:
 		// describes the format of the vertex data that will be passed to the vertex shader
 		VkPipelineVertexInputStateCreateInfo vertexInputInfo = {};
 		vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-		auto bindingDescription = VertexBuffer::Vertex::getBindingDescription();
-		auto attributeDescriptions = VertexBuffer::Vertex::getAttributeDescriptions();
+		auto bindingDescription = Vertex::getBindingDescription();
+		auto attributeDescriptions = Vertex::getAttributeDescriptions();
 		// spacing between data and whether data is per-vertex or per-instance
 		vertexInputInfo.vertexBindingDescriptionCount = 1;
 		// type of the attributes passed to the vertex shader, which binding to load them from and at which offset

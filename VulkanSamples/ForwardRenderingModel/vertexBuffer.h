@@ -1,6 +1,9 @@
 #pragma once
 #include <vulkan/vulkan.h>
+#define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE // GLM will use the OpenGL depth range of -1.0 to 1.0 by default. Use the Vulkan range of 0.0 to 1.0 instead
 #include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/hash.hpp>
 #include <array>
 #include <vector>
@@ -8,11 +11,6 @@
 
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "tiny_obj_loader.h"
-
-namespace VertexBuffer {
-
-	const std::string MODEL_PATH = "models/chalet.obj";
-	const std::string TEXTURE_PATH = "textures/chalet.jpg";
 
 	struct Vertex {
 		// GLM provides C++ types that match those use in GLSL
@@ -70,6 +68,24 @@ namespace VertexBuffer {
 			return pos == other.pos && color == other.color && texCoord == other.texCoord;
 		}
 	};
+
+	// custom specialization of std::hash can be injected in namespace std. This is why the Vertex definition
+	// is not inside the VertexBuffer:: namespace
+	namespace std {
+		template<> struct hash<Vertex> {
+			// Hash functions are a complex topic, but cppreference.com recommends the following approach 
+			// combining the fields of a struct to create a decent quality hash function.
+			size_t operator()(Vertex const& vertex) const {
+				// note the () operator overload for glm::types is defined in <glm/gtx/hash.hpp>
+				return ((hash<glm::vec3>()(vertex.pos) ^ (hash<glm::vec3>()(vertex.color) << 1)) >> 1) ^ (hash<glm::vec2>()(vertex.texCoord) << 1);
+				return 0;
+			}
+		};
+	}
+namespace VertexBuffer {
+
+	const std::string MODEL_PATH = "models/chalet.obj";
+	const std::string TEXTURE_PATH = "textures/chalet.jpg";
 
 	// Interleaving vertex attributes
 	std::vector<Vertex> vertices;
@@ -134,14 +150,4 @@ namespace VertexBuffer {
 			}
 		}
 	}
-}
-
-// custom specialization of std::hash can be injected in namespace std
-// required for using a vertex as a key in a hash table
-namespace std {
-	template<> struct hash<VertexBuffer::Vertex> {
-		size_t operator()(VertexBuffer::Vertex const& vertex) const {
-			return ((hash<glm::vec3>()(vertex.pos) ^ (hash<glm::vec3>()(vertex.color) << 1)) >> 1) ^ (hash<glm::vec2>()(vertex.texCoord) << 1);
-		}
-	};
 }
