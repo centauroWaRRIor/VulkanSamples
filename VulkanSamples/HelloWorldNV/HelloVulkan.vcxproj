@@ -12,8 +12,9 @@
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{653A045B-C44E-E82C-7AC8-91277540DB23}</ProjectGuid>
-    <RootNamespace>HelloVulkan</RootNamespace>
+    <RootNamespace>HelloWorldNV</RootNamespace>
     <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
+    <ProjectName>HelloWorldNvFramework</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='debug|x64'" Label="Configuration">
@@ -36,7 +37,7 @@
   </ImportGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='debug|x64'">
     <OutDir>./bin/vs2015x64\</OutDir>
-    <IntDir>./intermediate/HelloVulkan/vs2015x64/debug\</IntDir>
+    <IntDir>./intermediate/HelloWorldNV/vs2015x64/debug\</IntDir>
     <TargetExt>.exe</TargetExt>
     <TargetName>HelloVulkanD</TargetName>
     <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
@@ -51,8 +52,8 @@
       <FloatingPointModel>Fast</FloatingPointModel>
       <AdditionalOptions>/Oy- /EHsc /wd4100 /wd4201 /wd4390 /wd4748 /wd4995 /wd4996 /wd4244 /wd4267 /wd4334</AdditionalOptions>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>$(SolutionDir)..\NvGameworksFramework\include;$(SolutionDir)..\NvGameworksFramework\externals\include;$(SolutionDir)..\NvGameworksFramework\include\NsFoundation;$(SolutionDir)..\NvGameworksFramework\include\NvFoundation;$(SolutionDir)..\NvGameworksFramework\externals\include\GLFW;$(VK_SDK_PATH)/Include;$(SolutionDir)..\NvGameworksFramework\include\NvVkUtil;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>NV_FOUNDATION_DLL=0;GW_APP_NAME="HelloVulkan";_DEBUG;PROFILE;_ITERATOR_DEBUG_LEVEL=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(SolutionDir)..\ExternalLibraries\NvGameworksFramework\include;$(SolutionDir)..\ExternalLibraries\NvGameworksFramework\externals\include;$(SolutionDir)..\ExternalLibraries\NvGameworksFramework\include\NsFoundation;$(SolutionDir)..\ExternalLibraries\NvGameworksFramework\include\NvFoundation;$(SolutionDir)..\ExternalLibraries\NvGameworksFramework\externals\include\GLFW;$(VK_SDK_PATH)/Include;$(SolutionDir)..\ExternalLibraries\NvGameworksFramework\include\NvVkUtil;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>NV_FOUNDATION_DLL=0;GW_APP_NAME="HelloWorldNV";_DEBUG;PROFILE;_ITERATOR_DEBUG_LEVEL=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <WarningLevel>Level3</WarningLevel>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
@@ -64,7 +65,7 @@
       <AdditionalOptions>/DEBUG /MACHINE:x64 /LARGEADDRESSAWARE /NOLOGO /OPT:REF /OPT:ICF /INCREMENTAL:NO</AdditionalOptions>
       <AdditionalDependencies>xinput9_1_0.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;opengl32.lib;vulkan-1.lib;glew32sd.lib;glfw3d.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)HelloVulkanD.exe</OutputFile>
-      <AdditionalLibraryDirectories>$(SolutionDir)..\NvGameworksFramework\lib\vs2015x64;$(SolutionDir)..\NvGameworksFramework\externals\lib\vs2015x64;$(SolutionDir)..\NvGameworksFramework\externals\linux-aarch64;$(VK_SDK_PATH)/Bin;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SolutionDir)..\ExternalLibraries\NvGameworksFramework\lib\vs2015x64;$(SolutionDir)..\ExternalLibraries\NvGameworksFramework\externals\lib\vs2015x64;$(SolutionDir)..\ExternalLibraries\NvGameworksFramework\externals\linux-aarch64;$(VK_SDK_PATH)/Bin;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <ProgramDatabaseFile>$(OutDir)/HelloVulkanD.exe.pdb</ProgramDatabaseFile>
       <SubSystem>Windows</SubSystem>
       <ImportLibrary>$(OutDir)$(TargetName).lib</ImportLibrary>
@@ -77,9 +78,9 @@
   </ItemDefinitionGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='release|x64'">
     <OutDir>./bin/vs2015x64\</OutDir>
-    <IntDir>./intermediate/HelloVulkan/vs2015x64/release\</IntDir>
+    <IntDir>./intermediate/HelloWorldNV/vs2015x64/release\</IntDir>
     <TargetExt>.exe</TargetExt>
-    <TargetName>HelloVulkan</TargetName>
+    <TargetName>HelloWorldNV</TargetName>
     <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
     <CodeAnalysisRules />
     <CodeAnalysisRuleAssemblies />
@@ -92,8 +93,8 @@
       <FloatingPointModel>Fast</FloatingPointModel>
       <AdditionalOptions>/Oy- /EHsc /wd4100 /wd4201 /wd4390 /wd4748 /wd4995 /wd4996 /wd4244 /wd4267 /wd4334</AdditionalOptions>
       <Optimization>Full</Optimization>
-      <AdditionalIncludeDirectories>$(SolutionDir)..\NvGameworksFramework\include;$(SolutionDir)..\NvGameworksFramework\externals\include;$(SolutionDir)..\NvGameworksFramework\include\NsFoundation;$(SolutionDir)..\NvGameworksFramework\include\NvFoundation;$(SolutionDir)..\NvGameworksFramework\externals\include\GLFW;$(VK_SDK_PATH)/Include;$(SolutionDir)..\NvGameworksFramework\include\NvVkUtil;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>NV_FOUNDATION_DLL=0;GW_APP_NAME="HelloVulkan";NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(SolutionDir)..\ExternalLibraries\NvGameworksFramework\include;$(SolutionDir)..\ExternalLibraries\NvGameworksFramework\externals\include;$(SolutionDir)..\ExternalLibraries\NvGameworksFramework\include\NsFoundation;$(SolutionDir)..\ExternalLibraries\NvGameworksFramework\include\NvFoundation;$(SolutionDir)..\ExternalLibraries\NvGameworksFramework\externals\include\GLFW;$(VK_SDK_PATH)/Include;$(SolutionDir)..\ExternalLibraries\NvGameworksFramework\include\NvVkUtil;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>NV_FOUNDATION_DLL=0;GW_APP_NAME="HelloWorldNV";NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <WarningLevel>Level3</WarningLevel>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
@@ -103,9 +104,9 @@
     <Link>
       <AdditionalOptions>/DEBUG /MACHINE:x64 /LARGEADDRESSAWARE /NOLOGO /OPT:REF /OPT:ICF /INCREMENTAL:NO</AdditionalOptions>
       <AdditionalDependencies>xinput9_1_0.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;opengl32.lib;vulkan-1.lib;glew32s.lib;glfw3.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <OutputFile>$(OutDir)HelloVulkan.exe</OutputFile>
-      <AdditionalLibraryDirectories>$(SolutionDir)..\NvGameworksFramework\lib\vs2015x64;$(SolutionDir)..\NvGameworksFramework\externals\lib\vs2015x64;$(SolutionDir)..\NvGameworksFramework\externals\linux-aarch64;$(VK_SDK_PATH)/Bin;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <ProgramDatabaseFile>$(OutDir)/HelloVulkan.exe.pdb</ProgramDatabaseFile>
+      <OutputFile>$(OutDir)HelloWorldNV.exe</OutputFile>
+      <AdditionalLibraryDirectories>$(SolutionDir)..\ExternalLibraries\NvGameworksFramework\lib\vs2015x64;$(SolutionDir)..\ExternalLibraries\NvGameworksFramework\externals\lib\vs2015x64;$(SolutionDir)..\ExternalLibraries\NvGameworksFramework\externals\linux-aarch64;$(VK_SDK_PATH)/Bin;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <ProgramDatabaseFile>$(OutDir)/HelloWorldNV.exe.pdb</ProgramDatabaseFile>
       <SubSystem>Windows</SubSystem>
       <ImportLibrary>$(OutDir)$(TargetName).lib</ImportLibrary>
       <TargetMachine>MachineX64</TargetMachine>
@@ -116,65 +117,65 @@
     </ProjectReference>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <CustomBuild Include="$(SolutionDir)\HelloVulkan\assets\src_shaders\simple.glsl">
-      <Command Condition="'$(Configuration)|$(Platform)'=='debug|x64'">$(SolutionDir)..\BuildTools\spir-v\bin\glsl2spirv.exe -o $(SolutionDir)HelloVulkan\assets\src_shaders\..\shaders\simple.nvs $(SolutionDir)HelloVulkan\assets\src_shaders\simple.glsl</Command>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='debug|x64'">$(SolutionDir)HelloVulkan/assets/src_shaders\..\shaders\simple.nvs;</Outputs>
-      <Command Condition="'$(Configuration)|$(Platform)'=='release|x64'">$(SolutionDir)..\BuildTools\spir-v\bin\glsl2spirv.exe -o $(SolutionDir)HelloVulkan\assets\src_shaders\..\shaders\simple.nvs $(SolutionDir)HelloVulkan\assets\src_shaders\simple.glsl</Command>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='release|x64'">$(SolutionDir)HelloVulkan\assets\src_shaders\..\shaders\simple.nvs;</Outputs>
+    <CustomBuild Include="$(SolutionDir)\HelloWorldNV\assets\src_shaders\simple.glsl">
+      <Command Condition="'$(Configuration)|$(Platform)'=='debug|x64'">$(SolutionDir)..\ExternalLibraries\BuildTools\spir-v\bin\glsl2spirv.exe -o $(SolutionDir)HelloWorldNV\assets\src_shaders\..\shaders\simple.nvs $(SolutionDir)HelloWorldNV\assets\src_shaders\simple.glsl</Command>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='debug|x64'">$(SolutionDir)HelloWorldNV/assets/src_shaders\..\shaders\simple.nvs;</Outputs>
+      <Command Condition="'$(Configuration)|$(Platform)'=='release|x64'">$(SolutionDir)..\ExternalLibraries\BuildTools\spir-v\bin\glsl2spirv.exe -o $(SolutionDir)HelloWorldNV\assets\src_shaders\..\shaders\simple.nvs $(SolutionDir)HelloWorldNV\assets\src_shaders\simple.glsl</Command>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='release|x64'">$(SolutionDir)HelloWorldNV\assets\src_shaders\..\shaders\simple.nvs;</Outputs>
     </CustomBuild>
   </ItemGroup>
   <ItemGroup Condition="('$(Platform)'=='x64')">
-    <ProjectReference Include="$(SolutionDir)..\NvGameworksFramework\build\vs2015All\NvVkUtil.vcxproj">
+    <ProjectReference Include="$(SolutionDir)..\ExternalLibraries\NvGameworksFramework\build\vs2015All\NvVkUtil.vcxproj">
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup Condition="('$(Platform)'=='x64')">
-    <ProjectReference Include="$(SolutionDir)..\NvGameworksFramework\build\vs2015All\NsFoundation.vcxproj">
+    <ProjectReference Include="$(SolutionDir)..\ExternalLibraries\NvGameworksFramework\build\vs2015All\NsFoundation.vcxproj">
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup Condition="('$(Platform)'=='x64')">
-    <ProjectReference Include="$(SolutionDir)..\NvGameworksFramework\build\vs2015All\NvAppBase.vcxproj">
+    <ProjectReference Include="$(SolutionDir)..\ExternalLibraries\NvGameworksFramework\build\vs2015All\NvAppBase.vcxproj">
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup Condition="('$(Platform)'=='x64')">
-    <ProjectReference Include="$(SolutionDir)..\NvGameworksFramework\build\vs2015All\NvAssetLoader.vcxproj">
+    <ProjectReference Include="$(SolutionDir)..\ExternalLibraries\NvGameworksFramework\build\vs2015All\NvAssetLoader.vcxproj">
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup Condition="('$(Platform)'=='x64')">
-    <ProjectReference Include="$(SolutionDir)..\NvGameworksFramework\build\vs2015All\NvModel.vcxproj">
+    <ProjectReference Include="$(SolutionDir)..\ExternalLibraries\NvGameworksFramework\build\vs2015All\NvModel.vcxproj">
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup Condition="('$(Platform)'=='x64')">
-    <ProjectReference Include="$(SolutionDir)..\NvGameworksFramework\build\vs2015All\NvGLUtils.vcxproj">
+    <ProjectReference Include="$(SolutionDir)..\ExternalLibraries\NvGameworksFramework\build\vs2015All\NvGLUtils.vcxproj">
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup Condition="('$(Platform)'=='x64')">
-    <ProjectReference Include="$(SolutionDir)..\NvGameworksFramework\build\vs2015All\NvGamepad.vcxproj">
+    <ProjectReference Include="$(SolutionDir)..\ExternalLibraries\NvGameworksFramework\build\vs2015All\NvGamepad.vcxproj">
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup Condition="('$(Platform)'=='x64')">
-    <ProjectReference Include="$(SolutionDir)..\NvGameworksFramework\build\vs2015All\NvImage.vcxproj">
+    <ProjectReference Include="$(SolutionDir)..\ExternalLibraries\NvGameworksFramework\build\vs2015All\NvImage.vcxproj">
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup Condition="('$(Platform)'=='x64')">
-    <ProjectReference Include="$(SolutionDir)..\NvGameworksFramework\build\vs2015All\NvUI.vcxproj">
+    <ProjectReference Include="$(SolutionDir)..\ExternalLibraries\NvGameworksFramework\build\vs2015All\NvUI.vcxproj">
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup Condition="('$(Platform)'=='x64')">
-    <ProjectReference Include="$(SolutionDir)..\NvGameworksFramework\externals\build\vs2015All/Half.vcxproj">
+    <ProjectReference Include="$(SolutionDir)..\ExternalLibraries\NvGameworksFramework\externals\build\vs2015All/Half.vcxproj">
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup Condition="('$(Platform)'=='x64')">
-    <ProjectReference Include="$(SolutionDir)..\NvGameworksFramework\build\vs2015All\NvEGLUtil.vcxproj">
+    <ProjectReference Include="$(SolutionDir)..\ExternalLibraries\NvGameworksFramework\build\vs2015All\NvEGLUtil.vcxproj">
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>
   </ItemGroup>
