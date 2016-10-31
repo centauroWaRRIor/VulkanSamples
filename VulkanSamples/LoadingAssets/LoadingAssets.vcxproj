@@ -117,11 +117,11 @@
     </ProjectReference>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <CustomBuild Include="$(SolutionDir)\HelloWorldNV\assets\src_shaders\simple.glsl">
-      <Command Condition="'$(Configuration)|$(Platform)'=='debug|x64'">$(SolutionDir)..\ExternalLibraries\BuildTools\spir-v\bin\glsl2spirv.exe -o $(SolutionDir)HelloWorldNV\assets\src_shaders\..\shaders\simple.nvs $(SolutionDir)HelloWorldNV\assets\src_shaders\simple.glsl</Command>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='debug|x64'">$(SolutionDir)HelloWorldNV/assets/src_shaders\..\shaders\simple.nvs;</Outputs>
-      <Command Condition="'$(Configuration)|$(Platform)'=='release|x64'">$(SolutionDir)..\ExternalLibraries\BuildTools\spir-v\bin\glsl2spirv.exe -o $(SolutionDir)HelloWorldNV\assets\src_shaders\..\shaders\simple.nvs $(SolutionDir)HelloWorldNV\assets\src_shaders\simple.glsl</Command>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='release|x64'">$(SolutionDir)HelloWorldNV\assets\src_shaders\..\shaders\simple.nvs;</Outputs>
+    <CustomBuild Include="$(SolutionDir)\LoadingAssets\assets\src_shaders\base_model.glsl">
+      <Command Condition="'$(Configuration)|$(Platform)'=='debug|x64'">$(SolutionDir)..\ExternalLibraries\BuildTools\spir-v\bin\glsl2spirv.exe -o $(SolutionDir)LoadingAssets\assets\src_shaders\..\shaders\base_model.nvs $(SolutionDir)LoadingAssets\assets\src_shaders\base_model.glsl</Command>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='debug|x64'">$(SolutionDir)LoadingAssets/assets/src_shaders\..\shaders\base_model.nvs;</Outputs>
+      <Command Condition="'$(Configuration)|$(Platform)'=='release|x64'">$(SolutionDir)..\ExternalLibraries\BuildTools\spir-v\bin\glsl2spirv.exe -o $(SolutionDir)LoadingAssets\assets\src_shaders\..\shaders\base_model.nvs $(SolutionDir)LoadingAssets\assets\src_shaders\base_model.glsl</Command>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='release|x64'">$(SolutionDir)LoadingAssets\assets\src_shaders\..\shaders\base_model.nvs;</Outputs>
     </CustomBuild>
   </ItemGroup>
   <ItemGroup Condition="('$(Platform)'=='x64')">
@@ -180,10 +180,10 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="HelloVulkan.cpp" />
+    <ClCompile Include="AssetViewer.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="HelloVulkan.h" />
+    <ClInclude Include="AssetViewer.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
