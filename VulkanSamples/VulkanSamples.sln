@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 14
-VisualStudioVersion = 14.0.25420.1
+# Visual Studio 15
+VisualStudioVersion = 15.0.28307.852
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HelloWorldVulkan", "HelloWorld\HelloWorld.vcxproj", "{F9651E00-240A-4069-A8CC-10E7D32F3164}"
 	ProjectSection(ProjectDependencies) = postProject
@@ -54,6 +54,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LoadingAssets", "LoadingAss
 		{6826558F-EF03-0A5E-6628-D07363F5E6A0} = {6826558F-EF03-0A5E-6628-D07363F5E6A0}
 		{1B5408AA-9214-FCC0-3C5C-59B660C07A08} = {1B5408AA-9214-FCC0-3C5C-59B660C07A08}
 	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HelloWorldVKRay", "HelloWorldVKRay\HelloWorldVKRay.vcxproj", "{4D7F15EE-C9B2-4D38-8D1B-94C14C48CF6C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -219,6 +221,16 @@ Global
 		{118CFE82-E475-4E3F-B921-50376DBF6631}.Release|x64.ActiveCfg = release|x64
 		{118CFE82-E475-4E3F-B921-50376DBF6631}.Release|x64.Build.0 = release|x64
 		{118CFE82-E475-4E3F-B921-50376DBF6631}.Release|x86.ActiveCfg = release|x64
+		{4D7F15EE-C9B2-4D38-8D1B-94C14C48CF6C}.Debug|Tegra-Android.ActiveCfg = Debug|Win32
+		{4D7F15EE-C9B2-4D38-8D1B-94C14C48CF6C}.Debug|x64.ActiveCfg = Debug|x64
+		{4D7F15EE-C9B2-4D38-8D1B-94C14C48CF6C}.Debug|x64.Build.0 = Debug|x64
+		{4D7F15EE-C9B2-4D38-8D1B-94C14C48CF6C}.Debug|x86.ActiveCfg = Debug|Win32
+		{4D7F15EE-C9B2-4D38-8D1B-94C14C48CF6C}.Debug|x86.Build.0 = Debug|Win32
+		{4D7F15EE-C9B2-4D38-8D1B-94C14C48CF6C}.Release|Tegra-Android.ActiveCfg = Release|Win32
+		{4D7F15EE-C9B2-4D38-8D1B-94C14C48CF6C}.Release|x64.ActiveCfg = Release|x64
+		{4D7F15EE-C9B2-4D38-8D1B-94C14C48CF6C}.Release|x64.Build.0 = Release|x64
+		{4D7F15EE-C9B2-4D38-8D1B-94C14C48CF6C}.Release|x86.ActiveCfg = Release|Win32
+		{4D7F15EE-C9B2-4D38-8D1B-94C14C48CF6C}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -233,5 +245,8 @@ Global
 		{6209A624-E0C4-3EB2-EEE2-E7B434B0E876} = {B6A61E22-582F-4521-8B2B-D7E2830B3994}
 		{231F554F-94E0-EF7D-D462-E3C0EE6EE101} = {B6A61E22-582F-4521-8B2B-D7E2830B3994}
 		{6826558F-EF03-0A5E-6628-D07363F5E6A0} = {B6A61E22-582F-4521-8B2B-D7E2830B3994}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {7263E722-D100-4A83-83FA-EE9F49CFD1F0}
 	EndGlobalSection
 EndGlobal
