@@ -49,12 +49,6 @@ namespace vksamples {
 					bool debug_enabled = false;
 
 					bool have_VK_LAYER_LUNARG_standard_validation = false;
-					bool have_VK_LAYER_GOOGLE_threading = false;
-					bool have_VK_LAYER_LUNARG_parameter_validation = false;
-					bool have_VK_LAYER_LUNARG_device_limits = false;
-					bool have_VK_LAYER_LUNARG_object_tracker = false;
-					bool have_VK_LAYER_LUNARG_image = false;
-					bool have_VK_LAYER_LUNARG_core_validation = false;
 #endif
 
 					std::vector<char const *> enabled_instance_extensions;
@@ -76,10 +70,10 @@ namespace vksamples {
 						vulkan_info.push_back(LogHelpers::StringFormat(" - %s [%d]", extension_properties.extensionName, extension_properties.specVersion));
 #endif
 
-						/*if (0 == strcmp(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, extension_properties.extensionName)) {
+						if (0 == strcmp(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, extension_properties.extensionName)) {
 							capabilities_.get_physical_device_properties2 = true;
 							enabled_instance_extensions.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
-						}
+						}/*
 						if (0 == strcmp(VK_KHR_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME, extension_properties.extensionName)) {
 							capabilities_.external_memory_capabilities = true;
 							enabled_instance_extensions.push_back(VK_KHR_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME);
@@ -123,54 +117,12 @@ namespace vksamples {
 						if (0 == strcmp(VK_LAYER_LUNARG_STANDARD_VALIDATION_LAYER_NAME, layer_properties.layerName)) {
 							have_VK_LAYER_LUNARG_standard_validation = true;
 						}
-						if (0 == strcmp(VK_LAYER_GOOGLE_THREADING_LAYER_NAME, layer_properties.layerName)) {
-							have_VK_LAYER_GOOGLE_threading = true;
-						}
-						if (0 == strcmp(VK_LAYER_LUNARG_PARAMETER_VALIDATION_LAYER_NAME, layer_properties.layerName)) {
-							have_VK_LAYER_LUNARG_parameter_validation = true;
-						}
-						if (0 == strcmp(VK_LAYER_LUNARG_DEVICE_LIMITS_LAYER_NAME, layer_properties.layerName)) {
-							have_VK_LAYER_LUNARG_device_limits = true;
-						}
-						if (0 == strcmp(VK_LAYER_LUNARG_OBJECT_TRACKER_LAYER_NAME, layer_properties.layerName)) {
-							have_VK_LAYER_LUNARG_object_tracker = true;
-						}
-						if (0 == strcmp(VK_LAYER_LUNARG_IMAGE_LAYER_NAME, layer_properties.layerName)) {
-							have_VK_LAYER_LUNARG_image = true;
-						}
-						if (0 == strcmp(VK_LAYER_LUNARG_CORE_VALIDATION_LAYER_NAME, layer_properties.layerName)) {
-							have_VK_LAYER_LUNARG_core_validation = true;
-						}
 					}
 
 					if (capabilities_.debug_report) {
 						if (have_VK_LAYER_LUNARG_standard_validation) {
 							debug_enabled = true;
 							enabled_instance_layers.push_back(VK_LAYER_LUNARG_STANDARD_VALIDATION_LAYER_NAME);
-						}
-						if (have_VK_LAYER_GOOGLE_threading) {
-							debug_enabled = true;
-							enabled_instance_layers.push_back(VK_LAYER_GOOGLE_THREADING_LAYER_NAME);
-						}
-						if (have_VK_LAYER_LUNARG_parameter_validation) {
-							debug_enabled = true;
-							enabled_instance_layers.push_back(VK_LAYER_LUNARG_PARAMETER_VALIDATION_LAYER_NAME);
-						}
-						if (have_VK_LAYER_LUNARG_device_limits) {
-							debug_enabled = true;
-							enabled_instance_layers.push_back(VK_LAYER_LUNARG_DEVICE_LIMITS_LAYER_NAME);
-						}
-						if (have_VK_LAYER_LUNARG_object_tracker) {
-							debug_enabled = true;
-							enabled_instance_layers.push_back(VK_LAYER_LUNARG_OBJECT_TRACKER_LAYER_NAME);
-						}
-						if (have_VK_LAYER_LUNARG_image) {
-							debug_enabled = true;
-							enabled_instance_layers.push_back(VK_LAYER_LUNARG_IMAGE_LAYER_NAME);
-						}
-						if (have_VK_LAYER_LUNARG_core_validation) {
-							debug_enabled = true;
-							enabled_instance_layers.push_back(VK_LAYER_LUNARG_CORE_VALIDATION_LAYER_NAME);
 						}
 						if (debug_enabled) {
 							enabled_instance_extensions.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
@@ -179,10 +131,10 @@ namespace vksamples {
 #endif
 
 					// could use the original version as a fallback if the extension isn't available,
-					// but this extension is needed for export/import
-					/*if (!capabilities_.get_physical_device_properties2) {
+					// but this extension is needed for querying vkray properties
+					if (!capabilities_.get_physical_device_properties2) {
 						return false;
-					}*/
+					}
 
 					VkInstanceCreateInfo instance_create_info;
 					instance_create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
@@ -251,22 +203,21 @@ namespace vksamples {
 					for (auto &physical_device : physical_devices) {
 						std::vector<char const *> enabled_device_extensions;
 
-						//VkPhysicalDeviceProperties2KHR physical_device_properties;
-						//physical_device_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2_KHR;
-						//physical_device_properties.pNext = nullptr;
-						// Because certain extension were not found I can't use this extension way of querying for phyical device
-						//symbols_.vkGetPhysicalDeviceProperties2KHR(physical_device, &physical_device_properties);
+						VkPhysicalDeviceProperties2KHR physical_device_properties;
+						physical_device_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2_KHR;
+						physical_device_properties.pNext = nullptr;
+						symbols_.vkGetPhysicalDeviceProperties2KHR(physical_device, &physical_device_properties);
 
-						VkPhysicalDeviceProperties physical_device_properties;
-						symbols_.vkGetPhysicalDeviceProperties(physical_device, &physical_device_properties);
+						//VkPhysicalDeviceProperties physical_device_properties;
+						//symbols_.vkGetPhysicalDeviceProperties(physical_device, &physical_device_properties);
 
 
 						//timestamp_period_ = physical_device_properties.properties.limits.timestampPeriod;
 
 #if _DEBUG
-						//vulkan_info.push_back(LogHelpers::StringFormat(" - %s: %s", vksamples::common::legacy::vk::Helpers::ToString(physical_device_properties.properties.deviceType).c_str(), physical_device_properties.properties.deviceName));
-						//vulkan_info.push_back(LogHelpers::StringFormat("   Timestamp Period: %f", physical_device_properties.properties.limits.timestampPeriod));
-			            vulkan_info.push_back(LogHelpers::StringFormat(" - %s: %s", vksamples::common::legacy::vk::Helpers::ToString(physical_device_properties.deviceType).c_str(), physical_device_properties.deviceName));
+						vulkan_info.push_back(LogHelpers::StringFormat(" - %s: %s", vksamples::common::legacy::vk::Helpers::ToString(physical_device_properties.properties.deviceType).c_str(), physical_device_properties.properties.deviceName));
+						vulkan_info.push_back(LogHelpers::StringFormat("   Timestamp Period: %f", physical_device_properties.properties.limits.timestampPeriod));
+			            //vulkan_info.push_back(LogHelpers::StringFormat(" - %s: %s", vksamples::common::legacy::vk::Helpers::ToString(physical_device_properties.deviceType).c_str(), physical_device_properties.deviceName));
 
 						//VkPhysicalDeviceMemoryProperties2KHR physical_device_memory_properties;
 						//physical_device_memory_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PROPERTIES_2_KHR;
@@ -378,11 +329,12 @@ namespace vksamples {
 								enabled_device_extensions.push_back(VK_KHR_MAINTENANCE2_EXTENSION_NAME);
 							}
 
-							/*if (0 == strcmp(VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME, extension_properties.extensionName)) {
+							if (0 == strcmp(VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME, extension_properties.extensionName)) {
 								capabilities_.get_memory_requirements2 = true;
 								enabled_device_extensions.push_back(VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME);
 							}
-							if (0 == strcmp(VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME, extension_properties.extensionName)) {
+
+							/*if (0 == strcmp(VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME, extension_properties.extensionName)) {
 								capabilities_.dedicated_allocation = true;
 								enabled_device_extensions.push_back(VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME);
 							}
@@ -406,6 +358,17 @@ namespace vksamples {
 								capabilities_.dirty_tile_map = true;
 								enabled_device_extensions.push_back(VK_NV_TEXTURE_DIRTY_TILE_MAP_EXTENSION_NAME);
 							}*/
+
+							if (0 == strcmp(VK_KHR_SWAPCHAIN_EXTENSION_NAME, extension_properties.extensionName)) {
+								capabilities_.swapchain = true;
+								enabled_device_extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+							}
+							if (0 == strcmp(VK_NV_RAY_TRACING_EXTENSION_NAME, extension_properties.extensionName)) {
+								capabilities_.nv_ray_tracing = true;
+								enabled_device_extensions.push_back(VK_NV_RAY_TRACING_EXTENSION_NAME);
+							}
+
+
 						}
 
 #if _DEBUG

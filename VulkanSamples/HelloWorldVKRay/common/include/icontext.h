@@ -28,8 +28,8 @@ namespace vksamples {
 
 				// clang-format off
 				struct VkCapabilities {
-					//bool get_physical_device_properties2 : 1;
-					//bool get_memory_requirements2 : 1;
+					bool get_physical_device_properties2 : 1;
+					bool get_memory_requirements2 : 1;
 					//bool dedicated_allocation : 1;
 					//bool external_memory_capabilities : 1;
 					//bool external_memory : 1;
@@ -38,6 +38,8 @@ namespace vksamples {
 					//bool external_semaphore : 1;
 					//bool external_semaphore_fd : 1;
 					//bool dirty_tile_map : 1;
+					bool swapchain : 1;
+					bool nv_ray_tracing : 1;
 #ifdef _DEBUG
 					bool debug_report : 1;
 #endif
